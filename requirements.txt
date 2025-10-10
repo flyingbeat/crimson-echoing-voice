@@ -1,1 +1,2 @@
 git+https://github.com/Alan-s-Speakeasy/Speakeasy-Python-Client-Library
+python-dotenv~=1.1.1
