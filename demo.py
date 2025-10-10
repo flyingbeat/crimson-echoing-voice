@@ -1,4 +1,6 @@
 import time
+from dotenv import load_dotenv
+import os
 
 from speakeasypy import Chatroom, EventType, Speakeasy
 
@@ -41,5 +43,8 @@ class Agent:
 
 
 if __name__ == "__main__":
-    demo_bot = Agent("CrimsonEchoingVoice", "")
+    load_dotenv()
+    username = os.getenv("SPEAKEASY_USERNAME", "")
+    password = os.getenv("SPEAKEASY_PASSWORD", "")
+    demo_bot = Agent(username, password)
     demo_bot.listen()
