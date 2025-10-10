@@ -46,15 +46,12 @@ class Agent:
                 return
 
             response_lines = []
-            if results.vars:
-                header = ", ".join(str(var) for var in results.vars)
-                response_lines.append(header)
 
             for row in results:
                 response_lines.append(", ".join(str(item) for item in row))
 
             response_text = "\n".join(response_lines)
-            room.post_messages(f"Query Result:\n```\n{response_text}\n```")
+            room.post_messages(f"{response_text}")
 
         except Exception as e:
             room.post_messages(f"Sorry, I couldn't process that query. Error: {e}")
