@@ -19,15 +19,12 @@ class Agent:
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
         self.speakeasy.register_callback(self.on_new_reaction, EventType.REACTION)
 
-
     def listen(self):
         self.speakeasy.start_listening()
-
 
     def on_new_reaction(self, reaction: str, message_ordinal: int, room: Chatroom):
         print(f"[{self.get_time()}] Reaction '{reaction}' on message #{message_ordinal} in room {room.room_id}")
         room.post_messages(f"👍 Thanks for your reaction: '{reaction}'")
-
 
     def on_new_message(self, message: str, room: Chatroom):
         print(f"[{self.get_time()}] New query in room {room.room_id}: {message}")
@@ -42,7 +39,6 @@ class Agent:
             return
 
         self._execute_query(cleaned_query, room)
-
 
     def _execute_query(self, query: str, room: Chatroom):
         try:
@@ -59,9 +55,9 @@ class Agent:
         except Exception as e:
             room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
 
-
     @staticmethod
     def _load_graph(path: str) -> Graph | None:
+        print("Loading graph...")
         graph = Graph()
         try:
             graph.parse(path, format="nt")
@@ -73,20 +69,18 @@ class Agent:
             print(f"Failed to load graph: {e}")
         return None
 
-
     @staticmethod
     def _clean_query(raw_message: str) -> str:
-        lines = [
-            line for line in raw_message.splitlines()
-            if not line.strip().startswith("#")
-        ]
-        query = "\n".join(lines).strip()
-
-        if query.startswith("'''") and query.endswith("'''"):
-            query = query[3:-3].strip()
-
-        return query
-
+        if "'''" in raw_message:
+            try:
+                start = raw_message.index("'''") + 3
+                end = raw_message.rindex("'''")
+                query = raw_message[start:end].strip()
+                return query
+            except ValueError:
+                return raw_message.strip()
+        else:
+            return raw_message.strip()
 
     @staticmethod
     def _format_results(results: list[str]) -> str:
@@ -94,7 +88,6 @@ class Agent:
             return f"Here is the result I found: {results[0]}"
         formatted = "\n- ".join(results)
         return f"I found multiple results for your query:\n- {formatted}"
-
 
     @staticmethod
     def get_time() -> str:
