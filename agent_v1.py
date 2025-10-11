@@ -1,4 +1,5 @@
 import os
+import signal
 import time
 from dotenv import load_dotenv
 from rdflib import Graph
@@ -6,6 +7,15 @@ from speakeasypy import Chatroom, EventType, Speakeasy
 
 DEFAULT_HOST_URL = "https://speakeasy.ifi.uzh.ch"
 GRAPH_PATH = "/space_mounts/atai-hs25/dataset/graph.nt"
+QUERY_TIMEOUT_SECONDS = 7
+
+
+class TimeoutException(Exception):
+    pass
+
+
+def timeout_handler(signum, frame):
+    raise TimeoutException(f"Query execution timed out after {QUERY_TIMEOUT_SECONDS} seconds.")
 
 
 class Agent:
@@ -27,7 +37,7 @@ class Agent:
         room.post_messages(f"👍 Thanks for your reaction: '{reaction}'")
 
     def on_new_message(self, message: str, room: Chatroom):
-        print(f"[{self.get_time()}] New query in room {room.room_id}: {message}")
+        print(f"[{self.get_time()}] New query in room {room.room_id}: \n {message}")
 
         if not self.graph:
             room.post_messages("⚠️ Graph is not loaded. Cannot process SPARQL query.")
@@ -41,6 +51,9 @@ class Agent:
         self._execute_query(cleaned_query, room)
 
     def _execute_query(self, query: str, room: Chatroom):
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(QUERY_TIMEOUT_SECONDS)
+
         try:
             results = self.graph.query(query)
             result_list = [", ".join(str(item) for item in row) for row in results]
@@ -52,8 +65,12 @@ class Agent:
             response_text = self._format_results(result_list)
             room.post_messages(response_text)
 
+        except TimeoutException as e:
+            room.post_messages(f"⚠️ Sorry, the query took too long to execute. {e}")
         except Exception as e:
             room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
+        finally:
+            signal.alarm(0)
 
     @staticmethod
     def _load_graph(path: str) -> Graph | None:
@@ -96,6 +113,9 @@ class Agent:
 
 if __name__ == "__main__":
     load_dotenv()
+
+    if os.name == 'nt':
+        print("Warning: The query timeout feature is not supported on Windows.")
 
     agent = Agent(os.getenv("SPEAKEASY_USERNAME", ""), os.getenv("SPEAKEASY_PASSWORD", ""))
     agent.listen()
