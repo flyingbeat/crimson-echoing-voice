@@ -1,0 +1,121 @@
+import os
+import signal
+import time
+from dotenv import load_dotenv
+from rdflib import Graph
+from speakeasypy import Chatroom, EventType, Speakeasy
+
+DEFAULT_HOST_URL = "https://speakeasy.ifi.uzh.ch"
+GRAPH_PATH = "/space_mounts/atai-hs25/dataset/graph.nt"
+QUERY_TIMEOUT_SECONDS = 7
+
+
+class TimeoutException(Exception):
+    pass
+
+
+def timeout_handler(signum, frame):
+    raise TimeoutException(f"Query execution timed out after {QUERY_TIMEOUT_SECONDS} seconds.")
+
+
+class Agent:
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.speakeasy = Speakeasy(host=DEFAULT_HOST_URL, username=username, password=password)
+        self.graph = self._load_graph(GRAPH_PATH)
+
+        self.speakeasy.login()
+
+        self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
+        self.speakeasy.register_callback(self.on_new_reaction, EventType.REACTION)
+
+    def listen(self):
+        self.speakeasy.start_listening()
+
+    def on_new_reaction(self, reaction: str, message_ordinal: int, room: Chatroom):
+        print(f"[{self.get_time()}] Reaction '{reaction}' on message #{message_ordinal} in room {room.room_id}")
+        room.post_messages(f"👍 Thanks for your reaction: '{reaction}'")
+
+    def on_new_message(self, message: str, room: Chatroom):
+        print(f"[{self.get_time()}] New query in room {room.room_id}: \n {message}")
+
+        if not self.graph:
+            room.post_messages("⚠️ Graph is not loaded. Cannot process SPARQL query.")
+            return
+
+        cleaned_query = self._clean_query(message)
+        if not cleaned_query:
+            room.post_messages("⚠️ The query is empty or invalid after cleaning.")
+            return
+
+        self._execute_query(cleaned_query, room)
+
+    def _execute_query(self, query: str, room: Chatroom):
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(QUERY_TIMEOUT_SECONDS)
+
+        try:
+            results = self.graph.query(query)
+            result_list = [", ".join(str(item) for item in row) for row in results]
+
+            if not result_list:
+                room.post_messages("⚠️ I ran the query, but there are no results.")
+                return
+
+            response_text = self._format_results(result_list)
+            room.post_messages(response_text)
+
+        except TimeoutException as e:
+            room.post_messages(f"⚠️ Sorry, the query took too long to execute. {e}")
+        except Exception as e:
+            room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
+        finally:
+            signal.alarm(0)
+
+    @staticmethod
+    def _load_graph(path: str) -> Graph | None:
+        print("Loading graph...")
+        graph = Graph()
+        try:
+            graph.parse(path, format="nt")
+            print("Graph loaded successfully.")
+            return graph
+        except FileNotFoundError:
+            print(f"Error: Graph file not found at {path}")
+        except Exception as e:
+            print(f"Failed to load graph: {e}")
+        return None
+
+    @staticmethod
+    def _clean_query(raw_message: str) -> str:
+        if "'''" in raw_message:
+            try:
+                start = raw_message.index("'''") + 3
+                end = raw_message.rindex("'''")
+                query = raw_message[start:end].strip()
+                return query
+            except ValueError:
+                return raw_message.strip()
+        else:
+            return raw_message.strip()
+
+    @staticmethod
+    def _format_results(results: list[str]) -> str:
+        if len(results) == 1:
+            return f"Here is the result I found: {results[0]}"
+        formatted = "\n- ".join(results)
+        return f"I found multiple results for your query:\n- {formatted}"
+
+    @staticmethod
+    def get_time() -> str:
+        return time.strftime("%H:%M:%S, %d-%m-%Y", time.localtime())
+
+
+if __name__ == "__main__":
+    load_dotenv()
+
+    if os.name == 'nt':
+        print("Warning: The query timeout feature is not supported on Windows.")
+
+    agent = Agent(os.getenv("SPEAKEASY_USERNAME", ""), os.getenv("SPEAKEASY_PASSWORD", ""))
+    agent.listen()
