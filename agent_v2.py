@@ -132,7 +132,10 @@ class Agent:
                 columns=('Label', 'Score', 'Rank'))
 
             response = "Here are the top 10 most plausible results from the embedding search:\n"
-            response += results.to_markdown(index=False)
+
+            for _, row in results.iterrows():
+                response += f"Rank {row['Rank']}: {row['Label']} (Score: {row['Score']})\n"
+
             room.post_messages(response)
 
         except KeyError as e:
