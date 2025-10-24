@@ -60,20 +60,6 @@ class Agent:
             room.post_messages("⚠️ Graph is not loaded. Cannot process any queries.")
             return
 
-        # cleaned_message = self._clean_query(message)
-        # if not cleaned_message:
-        #     room.post_messages("⚠️ The message is empty or invalid after cleaning.")
-        #     return
-
-        # Differentiate between a prompt and a SPARQL query
-        # is_prompt = ',' in cleaned_message and not cleaned_message.lower().strip().startswith(
-        #     ('select', 'prefix', 'ask', 'describe'))
-
-        # if is_prompt:
-        #     self._handle_prompt(cleaned_message, room)
-        # else:
-        #     self._execute_sparql_query(cleaned_message, room)
-
         self._handle_prompt(message, room)
 
     def _handle_prompt(self, prompt: str, room: Chatroom):
@@ -98,7 +84,6 @@ class Agent:
             room.post_messages(f"An error occurred while looking up entities: {e}")
             return
 
-        # Run both SPARQL and Embedding searches
         self._run_sparql_for_prompt(head_ent, pred_ent, room)
         self._run_embedding_search(head_ent, pred_ent, room)
 
@@ -116,16 +101,14 @@ class Agent:
     def _run_embedding_search(self, head_ent, pred_ent, room: Chatroom):
         room.post_messages("\n🧠 Now, searching with embeddings to find the most plausible answers...")
         try:
-            # Get embeddings for head and relation
             head_emb = self.entity_emb[self.ent2id[head_ent]]
             pred_emb = self.relation_emb[self.rel2id[pred_ent]]
 
-            # TransE scoring function: h + r ≈ t
             lhs = head_emb + pred_emb
             dist = pairwise_distances(lhs.reshape(1, -1), self.entity_emb).reshape(-1)
             most_likely_indices = dist.argsort()
+            print(most_likely_indices)
 
-            # Prepare results in a DataFrame
             results = pd.DataFrame([
                 (self.ent2lbl.get(self.id2ent[idx], "N/A"), f"{dist[idx]:.4f}", rank + 1)
                 for rank, idx in enumerate(most_likely_indices[:10])],
@@ -155,7 +138,7 @@ class Agent:
             if not result_list:
                 if not is_internal:
                     room.post_messages("⚠️ I ran the query, but there are no results.")
-                else:  # For internal queries, a softer message is better
+                else:
                     room.post_messages("I didn't find any direct results in the knowledge graph.")
                 return
 
@@ -187,21 +170,9 @@ class Agent:
                 self.ent2lbl = {ent: str(lbl) for ent, lbl in self.graph.subject_objects(RDFS.label)}
                 self.lbl2ent = {lbl: ent for ent, lbl in self.ent2lbl.items()}
 
-                # Create a mapping from relation labels to their URIs
-                # self.lbl2rel = {}
-                # for rel_uri in self.rel2id.keys():
-                #     # Attempt to get a proper label
-                #     label = self.graph.value(rel_uri, RDFS.label)
-                #     if label:
-                #         self.lbl2rel[str(label).lower()] = rel_uri
-                #     else:  # Fallback: use the part after the last '/'
-                #         label_fallback = rel_uri.split('/')[-1].replace('_', ' ')
-                #         self.lbl2rel[label_fallback.lower()] = rel_uri
-
             print("Embedding data loaded successfully.")
         except FileNotFoundError as e:
             print(f"Error loading embedding data: {e}. Embedding features will be disabled.")
-            # Disable features by nullifying data
             self.entity_emb = None
         except Exception as e:
             print(f"A general error occurred while loading embedding data: {e}")
@@ -219,18 +190,6 @@ class Agent:
         except Exception as e:
             print(f"Failed to load graph: {e}")
         return None
-
-    @staticmethod
-    def _clean_query(raw_message: str) -> str:
-        if "'''" in raw_message:
-            try:
-                start = raw_message.index("'''") + 3
-                end = raw_message.rindex("'''")
-                return raw_message[start:end].strip()
-            except ValueError:
-                return raw_message.strip()
-        else:
-            return raw_message.strip()
 
     @staticmethod
     def _format_results(results: list[str]) -> str:
