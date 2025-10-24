@@ -90,8 +90,7 @@ class Agent:
                 room.post_messages(f"Sorry, I could not find an entity with the label '{head_label}'.")
                 return
 
-            # Find relation URI from its label (case-insensitive)
-            pred_ent = self.lbl2rel.get(pred_label.lower())
+            pred_ent = self.lbl2ent.get(pred_label)
             if not pred_ent:
                 room.post_messages(f"Sorry, I could not find a relation with the label '{pred_label}'.")
                 return
@@ -142,30 +141,30 @@ class Agent:
         except Exception as e:
             room.post_messages(f"⚠️ An error occurred during the embedding search: {e}")
 
-    # def _execute_sparql_query(self, query: str, room: Chatroom, is_internal: bool = False):
-    #     signal.signal(signal.SIGALRM, timeout_handler)
-    #     signal.alarm(QUERY_TIMEOUT_SECONDS)
-    #
-    #     try:
-    #         results = self.graph.query(query)
-    #         result_list = [", ".join(str(item) for item in row) for row in results]
-    #
-    #         if not result_list:
-    #             if not is_internal:
-    #                 room.post_messages("⚠️ I ran the query, but there are no results.")
-    #             else:  # For internal queries, a softer message is better
-    #                 room.post_messages("I didn't find any direct results in the knowledge graph.")
-    #             return
-    #
-    #         response_text = self._format_results(result_list)
-    #         room.post_messages(response_text)
-    #
-    #     except TimeoutException as e:
-    #         room.post_messages(f"⚠️ Sorry, the query took too long to execute. {e}")
-    #     except Exception as e:
-    #         room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
-    #     finally:
-    #         signal.alarm(0)
+    def _execute_sparql_query(self, query: str, room: Chatroom, is_internal: bool = False):
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(QUERY_TIMEOUT_SECONDS)
+
+        try:
+            results = self.graph.query(query)
+            result_list = [", ".join(str(item) for item in row) for row in results]
+
+            if not result_list:
+                if not is_internal:
+                    room.post_messages("⚠️ I ran the query, but there are no results.")
+                else:  # For internal queries, a softer message is better
+                    room.post_messages("I didn't find any direct results in the knowledge graph.")
+                return
+
+            response_text = self._format_results(result_list)
+            room.post_messages(response_text)
+
+        except TimeoutException as e:
+            room.post_messages(f"⚠️ Sorry, the query took too long to execute. {e}")
+        except Exception as e:
+            room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
+        finally:
+            signal.alarm(0)
 
     def _load_embedding_data(self):
         print("Loading embedding data...")
@@ -186,15 +185,15 @@ class Agent:
                 self.lbl2ent = {lbl: ent for ent, lbl in self.ent2lbl.items()}
 
                 # Create a mapping from relation labels to their URIs
-                self.lbl2rel = {}
-                for rel_uri in self.rel2id.keys():
-                    # Attempt to get a proper label
-                    label = self.graph.value(rel_uri, RDFS.label)
-                    if label:
-                        self.lbl2rel[str(label).lower()] = rel_uri
-                    else:  # Fallback: use the part after the last '/'
-                        label_fallback = rel_uri.split('/')[-1].replace('_', ' ')
-                        self.lbl2rel[label_fallback.lower()] = rel_uri
+                # self.lbl2rel = {}
+                # for rel_uri in self.rel2id.keys():
+                #     # Attempt to get a proper label
+                #     label = self.graph.value(rel_uri, RDFS.label)
+                #     if label:
+                #         self.lbl2rel[str(label).lower()] = rel_uri
+                #     else:  # Fallback: use the part after the last '/'
+                #         label_fallback = rel_uri.split('/')[-1].replace('_', ' ')
+                #         self.lbl2rel[label_fallback.lower()] = rel_uri
 
             print("Embedding data loaded successfully.")
         except FileNotFoundError as e:
