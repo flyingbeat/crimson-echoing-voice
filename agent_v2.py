@@ -107,10 +107,12 @@ class Agent:
             lhs = head_emb + pred_emb
             dist = pairwise_distances(lhs.reshape(1, -1), self.entity_emb).reshape(-1)
             most_likely_indices = dist.argsort()
-            print(most_likely_indices)
+            for id in most_likely_indices[:10]:
+                print(self.id2ent[id])
+                print(self.ent2lbl.get(self.id2ent[id][len(WD):], "N/A"))
 
             results = pd.DataFrame([
-                (self.ent2lbl.get(self.id2ent[idx], "N/A"), f"{dist[idx]:.4f}", rank + 1)
+                (self.ent2lbl.get(self.id2ent[idx][len(WD):], "N/A"), f"{dist[idx]:.4f}", rank + 1)
                 for rank, idx in enumerate(most_likely_indices[:10])],
                 columns=('Label', 'Score', 'Rank'))
 
