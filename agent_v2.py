@@ -5,7 +5,7 @@ import csv
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
-from rdflib import Graph, Namespace, RDFS
+from rdflib import Graph, Namespace, RDFS, URIRef
 from speakeasypy import Chatroom, EventType, Speakeasy
 from sklearn.metrics import pairwise_distances
 
@@ -159,11 +159,11 @@ class Agent:
             self.relation_emb = np.load(RELATION_EMBEDS_PATH)
 
             with open(ENTITY_IDS_PATH, 'r') as f:
-                self.ent2id = {Namespace(ent): int(idx) for idx, ent in csv.reader(f, delimiter='\t')}
+                self.ent2id = {URIRef(ent): int(idx) for idx, ent in csv.reader(f, delimiter='\t')}
             self.id2ent = {v: k for k, v in self.ent2id.items()}
 
             with open(RELATION_IDS_PATH, 'r') as f:
-                self.rel2id = {Namespace(rel): int(idx) for idx, rel in csv.reader(f, delimiter='\t')}
+                self.rel2id = {URIRef(rel): int(idx) for idx, rel in csv.reader(f, delimiter='\t')}
             self.id2rel = {v: k for k, v in self.rel2id.items()}
 
             if self.graph:
