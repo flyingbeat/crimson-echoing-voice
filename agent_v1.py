@@ -1,13 +1,28 @@
 import os
 import signal
 import time
+import csv
+import pandas as pd
+import numpy as np
 from dotenv import load_dotenv
-from rdflib import Graph
+from rdflib import Graph, Namespace, RDFS
 from speakeasypy import Chatroom, EventType, Speakeasy
+from sklearn.metrics import pairwise_distances
 
 DEFAULT_HOST_URL = "https://speakeasy.ifi.uzh.ch"
 GRAPH_PATH = "/space_mounts/atai-hs25/dataset/graph.nt"
-QUERY_TIMEOUT_SECONDS = 7
+DATA_DIR = "/space_mounts/atai-hs25/dataset/embeddings"
+QUERY_TIMEOUT_SECONDS = 10
+
+ENTITY_EMBEDS_PATH = os.path.join(DATA_DIR, 'entity_embeds.npy')
+RELATION_EMBEDS_PATH = os.path.join(DATA_DIR, 'relation_embeds.npy')
+ENTITY_IDS_PATH = os.path.join(DATA_DIR, 'entity_ids.del')
+RELATION_IDS_PATH = os.path.join(DATA_DIR, 'relation_ids.del')
+
+WD = Namespace('http://www.wikidata.org/entity/')
+WDT = Namespace('http://www.wikidata.org/prop/direct/')
+DDIS = Namespace('http://ddis.ch/atai/')
+SCHEMA = Namespace('http://schema.org/')
 
 
 class TimeoutException(Exception):
@@ -23,11 +38,13 @@ class Agent:
         self.username = username
         self.speakeasy = Speakeasy(host=DEFAULT_HOST_URL, username=username, password=password)
         self.graph = self._load_graph(GRAPH_PATH)
+        self._load_embedding_data()
 
         self.speakeasy.login()
 
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
         self.speakeasy.register_callback(self.on_new_reaction, EventType.REACTION)
+        print("Agent initialized and ready.")
 
     def listen(self):
         self.speakeasy.start_listening()
@@ -37,40 +54,155 @@ class Agent:
         room.post_messages(f"👍 Thanks for your reaction: '{reaction}'")
 
     def on_new_message(self, message: str, room: Chatroom):
-        print(f"[{self.get_time()}] New query in room {room.room_id}: \n {message}")
+        print(f"[{self.get_time()}] New message in room {room.room_id}: \n {message}")
 
         if not self.graph:
-            room.post_messages("⚠️ Graph is not loaded. Cannot process SPARQL query.")
+            room.post_messages("⚠️ Graph is not loaded. Cannot process any queries.")
             return
 
-        cleaned_query = self._clean_query(message)
-        if not cleaned_query:
-            room.post_messages("⚠️ The query is empty or invalid after cleaning.")
+        # cleaned_message = self._clean_query(message)
+        # if not cleaned_message:
+        #     room.post_messages("⚠️ The message is empty or invalid after cleaning.")
+        #     return
+
+        # Differentiate between a prompt and a SPARQL query
+        # is_prompt = ',' in cleaned_message and not cleaned_message.lower().strip().startswith(
+        #     ('select', 'prefix', 'ask', 'describe'))
+
+        # if is_prompt:
+        #     self._handle_prompt(cleaned_message, room)
+        # else:
+        #     self._execute_sparql_query(cleaned_message, room)
+
+        self._handle_prompt(message, room)
+
+    def _handle_prompt(self, prompt: str, room: Chatroom):
+        parts = [p.strip() for p in prompt.split(',')]
+        if len(parts) != 2:
+            room.post_messages("Invalid prompt format. Please use the format: `Entity Label, Relation Label`")
             return
 
-        self._execute_query(cleaned_query, room)
-
-    def _execute_query(self, query: str, room: Chatroom):
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(QUERY_TIMEOUT_SECONDS)
+        head_label, pred_label = parts
 
         try:
-            results = self.graph.query(query)
-            result_list = [", ".join(str(item) for item in row) for row in results]
-
-            if not result_list:
-                room.post_messages("⚠️ I ran the query, but there are no results.")
+            head_ent = self.lbl2ent.get(head_label)
+            if not head_ent:
+                room.post_messages(f"Sorry, I could not find an entity with the label '{head_label}'.")
                 return
 
-            response_text = self._format_results(result_list)
-            room.post_messages(response_text)
-
-        except TimeoutException as e:
-            room.post_messages(f"⚠️ Sorry, the query took too long to execute. {e}")
+            # Find relation URI from its label (case-insensitive)
+            pred_ent = self.lbl2rel.get(pred_label.lower())
+            if not pred_ent:
+                room.post_messages(f"Sorry, I could not find a relation with the label '{pred_label}'.")
+                return
         except Exception as e:
-            room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
-        finally:
-            signal.alarm(0)
+            room.post_messages(f"An error occurred while looking up entities: {e}")
+            return
+
+        # Run both SPARQL and Embedding searches
+        self._run_sparql_for_prompt(head_ent, pred_ent, room)
+        self._run_embedding_search(head_ent, pred_ent, room)
+
+    def _run_sparql_for_prompt(self, head_ent, pred_ent, room: Chatroom):
+        query = f"""
+            SELECT ?objLabel WHERE {{
+                <{head_ent}> <{pred_ent}> ?obj .
+                ?obj rdfs:label ?objLabel .
+            }}
+        """
+        room.post_messages(
+            f"🔎 Searching the knowledge graph for `{head_ent.split('/')[-1]}` → `{pred_ent.split('/')[-1]}`...")
+        self._execute_sparql_query(query, room, is_internal=True)
+
+    def _run_embedding_search(self, head_ent, pred_ent, room: Chatroom):
+        room.post_messages("\n🧠 Now, searching with embeddings to find the most plausible answers...")
+        try:
+            # Get embeddings for head and relation
+            head_emb = self.entity_emb[self.ent2id[head_ent]]
+            pred_emb = self.relation_emb[self.rel2id[pred_ent]]
+
+            # TransE scoring function: h + r ≈ t
+            lhs = head_emb + pred_emb
+            dist = pairwise_distances(lhs.reshape(1, -1), self.entity_emb).reshape(-1)
+            most_likely_indices = dist.argsort()
+
+            # Prepare results in a DataFrame
+            results = pd.DataFrame([
+                (self.ent2lbl.get(self.id2ent[idx], "N/A"), f"{dist[idx]:.4f}", rank + 1)
+                for rank, idx in enumerate(most_likely_indices[:10])],
+                columns=('Label', 'Score', 'Rank'))
+
+            response = "Here are the top 10 most plausible results from the embedding search:\n"
+            response += results.to_markdown(index=False)
+            room.post_messages(response)
+
+        except KeyError as e:
+            room.post_messages(
+                f"⚠️ Could not perform embedding search. Entity or relation not found in embedding dictionary: `{e}`")
+        except Exception as e:
+            room.post_messages(f"⚠️ An error occurred during the embedding search: {e}")
+
+    # def _execute_sparql_query(self, query: str, room: Chatroom, is_internal: bool = False):
+    #     signal.signal(signal.SIGALRM, timeout_handler)
+    #     signal.alarm(QUERY_TIMEOUT_SECONDS)
+    #
+    #     try:
+    #         results = self.graph.query(query)
+    #         result_list = [", ".join(str(item) for item in row) for row in results]
+    #
+    #         if not result_list:
+    #             if not is_internal:
+    #                 room.post_messages("⚠️ I ran the query, but there are no results.")
+    #             else:  # For internal queries, a softer message is better
+    #                 room.post_messages("I didn't find any direct results in the knowledge graph.")
+    #             return
+    #
+    #         response_text = self._format_results(result_list)
+    #         room.post_messages(response_text)
+    #
+    #     except TimeoutException as e:
+    #         room.post_messages(f"⚠️ Sorry, the query took too long to execute. {e}")
+    #     except Exception as e:
+    #         room.post_messages(f"⚠️ Sorry, I couldn't process that query. Error: {e}")
+    #     finally:
+    #         signal.alarm(0)
+
+    def _load_embedding_data(self):
+        print("Loading embedding data...")
+        try:
+            self.entity_emb = np.load(ENTITY_EMBEDS_PATH)
+            self.relation_emb = np.load(RELATION_EMBEDS_PATH)
+
+            with open(ENTITY_IDS_PATH, 'r') as f:
+                self.ent2id = {Namespace(ent): int(idx) for idx, ent in csv.reader(f, delimiter='\t')}
+            self.id2ent = {v: k for k, v in self.ent2id.items()}
+
+            with open(RELATION_IDS_PATH, 'r') as f:
+                self.rel2id = {Namespace(rel): int(idx) for idx, rel in csv.reader(f, delimiter='\t')}
+            self.id2rel = {v: k for k, v in self.rel2id.items()}
+
+            if self.graph:
+                self.ent2lbl = {ent: str(lbl) for ent, lbl in self.graph.subject_objects(RDFS.label)}
+                self.lbl2ent = {lbl: ent for ent, lbl in self.ent2lbl.items()}
+
+                # Create a mapping from relation labels to their URIs
+                self.lbl2rel = {}
+                for rel_uri in self.rel2id.keys():
+                    # Attempt to get a proper label
+                    label = self.graph.value(rel_uri, RDFS.label)
+                    if label:
+                        self.lbl2rel[str(label).lower()] = rel_uri
+                    else:  # Fallback: use the part after the last '/'
+                        label_fallback = rel_uri.split('/')[-1].replace('_', ' ')
+                        self.lbl2rel[label_fallback.lower()] = rel_uri
+
+            print("Embedding data loaded successfully.")
+        except FileNotFoundError as e:
+            print(f"Error loading embedding data: {e}. Embedding features will be disabled.")
+            # Disable features by nullifying data
+            self.entity_emb = None
+        except Exception as e:
+            print(f"A general error occurred while loading embedding data: {e}")
 
     @staticmethod
     def _load_graph(path: str) -> Graph | None:
@@ -92,8 +224,7 @@ class Agent:
             try:
                 start = raw_message.index("'''") + 3
                 end = raw_message.rindex("'''")
-                query = raw_message[start:end].strip()
-                return query
+                return raw_message[start:end].strip()
             except ValueError:
                 return raw_message.strip()
         else:
@@ -104,7 +235,7 @@ class Agent:
         if len(results) == 1:
             return f"Here is the result I found: {results[0]}"
         formatted = "\n- ".join(results)
-        return f"I found multiple results for your query:\n- {formatted}"
+        return f"I found multiple results:\n- {formatted}"
 
     @staticmethod
     def get_time() -> str:
