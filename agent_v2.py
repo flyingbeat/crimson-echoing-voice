@@ -10,8 +10,8 @@ from speakeasypy import Chatroom, EventType, Speakeasy
 from sklearn.metrics import pairwise_distances
 
 DEFAULT_HOST_URL = "https://speakeasy.ifi.uzh.ch"
-GRAPH_PATH = "/space_mounts/atai-hs25/dataset/graph.nt"
-DATA_DIR = "/space_mounts/atai-hs25/dataset/embeddings"
+GRAPH_PATH = "/Users/larsboesch/Projects/atai/dataset/graph.nt"
+DATA_DIR = "/Users/larsboesch/Projects/atai/dataset/embeddings"
 QUERY_TIMEOUT_SECONDS = 10
 
 ENTITY_EMBEDS_PATH = os.path.join(DATA_DIR, 'entity_embeds.npy')
@@ -106,26 +106,19 @@ class Agent:
 
             lhs = head_emb + pred_emb
             dist = pairwise_distances(lhs.reshape(1, -1), self.entity_emb).reshape(-1)
-            most_likely_indices = dist.argsort()
-            for id in most_likely_indices[:10]:
-                print(self.id2ent[id])
-                print(self.ent2lbl.get(self.id2ent[id][len(WD):], "N/A"))
+            best_idx = int(dist.argmin())
+            best_ent = self.id2ent[best_idx]
 
-            results = pd.DataFrame([
-                (self.ent2lbl.get(self.id2ent[idx][len(WD):], "N/A"), f"{dist[idx]:.4f}", rank + 1)
-                for rank, idx in enumerate(most_likely_indices[:10])],
-                columns=('Label', 'Score', 'Rank'))
-
-            response = "Here are the top 10 most plausible results from the embedding search:\n"
-
-            for _, row in results.iterrows():
-                response += f"Rank {row['Rank']}: {row['Label']} (Score: {row['Score']})\n"
-
-            room.post_messages(response)
+            label = self.ent2lbl.get(best_ent)
+            if label:
+                room.post_messages(f"Answer: {label}")
+            else:
+                room.post_messages(f"No label for this entity. Entity: {best_ent}")
 
         except KeyError as e:
             room.post_messages(
-                f"⚠️ Could not perform embedding search. Entity or relation not found in embedding dictionary: `{e}`")
+                f"⚠️ Could not perform embedding search. Entity or relation not found in embedding dictionary: `{e}`"
+            )
         except Exception as e:
             room.post_messages(f"⚠️ An error occurred during the embedding search: {e}")
 
