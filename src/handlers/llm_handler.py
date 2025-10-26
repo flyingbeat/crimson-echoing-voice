@@ -29,19 +29,19 @@ class PromptTemplate:
     assistant_prefix: Optional[str] = None
 
     def format(self, prompt: str) -> Dict[str, str]:
-        formatted_context = (
-            f""""We have provided context information below."
-            " - - - - - - - - - - -"
-            {self.context}
-            " - - - - - - - - - - -"\n
-            """
-            if self.context
-            else ""
-        )
+        formatted_context = ""
+        if self.context:
+            formatted_context = (
+                "We have provided context information below:\n"
+                "------------------------------------------\n"
+                f"{self.context}\n"
+                "------------------------------------------\n\n"
+            )
 
         formatted_user = (
             f"{formatted_context}{self.user_prefix}{prompt} {self.user_suffix}".strip()
         )
+
         return {
             "system": self.system,
             "user": formatted_user,
@@ -122,9 +122,9 @@ class LLMHandler:
             self._update_progress("Sending request to LLM")
 
             if stream:
-                return self._handle_streaming_response(request_params, formatted)
+                return self._handle_streaming_response(request_params, formatted.get("assistant_prefix"))
             else:
-                return self._handle_standard_response(request_params, formatted)
+                return self._handle_standard_response(request_params, formatted.get("assistant_prefix"))
 
         except Exception as e:
             logger.error(f"Error during LLM request: {e}")
