@@ -1,6 +1,5 @@
 import rdflib
 from thefuzz import fuzz, process
-from data_handler import DataHandler
 
 WD = rdflib.Namespace('http://www.wikidata.org/entity/')
 WDT = rdflib.Namespace('http://www.wikidata.org/prop/direct/')
@@ -27,10 +26,11 @@ EMBEDDING_REL_MAPPING = {
 
 
 class QueryHandler:
-    def __init__(self, data_handler: DataHandler, fuzzy_threshold=70):
+    def __init__(self, data_handler, fuzzy_threshold=70):
         self.data_handler = data_handler
         self.fuzzy_threshold = fuzzy_threshold
         self.relation_labels = self._load_relation_labels_from_graph()
+        self.entity_labels = self._load_entity_labels_from_graph()
         self.relation_synonyms = self._build_relation_synonyms()
 
     def _load_relation_labels_from_graph(self) -> dict[rdflib.URIRef, str]:
@@ -41,10 +41,24 @@ class QueryHandler:
         print("Loading and filtering relation labels directly from the graph...")
         labels = {}
         for s, p, o in self.data_handler.graph.triples((None, RDFS.label, None)):
-            if isinstance(s, rdflib.URIRef) and 'prop/direct/P' in str(s):
+            if isinstance(s, rdflib.URIRef) and str(s).startswith(str(WDT)):
                 labels[s] = str(o)
 
         print(f"Found {len(labels)} direct relation labels in the graph.")
+        return labels
+
+    def _load_entity_labels_from_graph(self) -> dict[rdflib.URIRef, str]:
+        if not self.data_handler.graph:
+            print("Warning: Graph not loaded. Cannot extract entity labels.")
+            return {}
+
+        print("Loading and filtering entity labels directly from the graph...")
+        labels = {}
+        for s, p, o in self.data_handler.graph.triples((None, RDFS.label, None)):
+            if isinstance(s, rdflib.URIRef) and str(s).startswith(str(WD)):
+                labels[s] = str(o)
+
+        print(f"Found {len(labels)} entity labels in the graph.")
         return labels
 
     def _build_relation_synonyms(self) -> dict[rdflib.URIRef, list[str]]:
@@ -76,24 +90,22 @@ class QueryHandler:
 
         return matches
 
-if __name__ == "__main__":
+    def find_entities_in_query(self, query: str) -> list[tuple[rdflib.URIRef, int, str]]:
+        if not self.entity_labels:
+            print("Error: Entity labels are not loaded. Cannot find entities.")
+            return []
 
-    GRAPH_PATH = "/Users/larsboesch/Projects/atai/dataset/graph.nt"
-    DATA_DIR = "/Users/larsboesch/Projects/atai/dataset/embeddings"
-    QUERY_TIMEOUT_SECONDS = 10
+        query_lower = query.lower()
+        matches = []
 
-    data_handler = DataHandler(graph_path=GRAPH_PATH, data_dir=DATA_DIR)
-    relation_finder = QueryHandler(data_handler=data_handler)
+        for entity_uri, entity_label in self.entity_labels.items():
+            if not entity_label:
+                continue
 
-    while True:
-        user_input = input("Enter a relation query (or 'exit' to quit): ")
-        if user_input.lower() == 'exit':
-            break
+            score = fuzz.WRatio(entity_label.lower(), query_lower)
 
-        relations = relation_finder.find_relations_in_query(user_input)
-        if relations:
-            print("Matched Relations:")
-            for rel_uri, score, rel_label in relations:
-                print(f"URI: {rel_uri}, Score: {score}, Label: {rel_label}")
-        else:
-            print("No matching relations found.")
+            if score > self.fuzzy_threshold:
+                matches.append((entity_uri, score, entity_label))
+
+        matches.sort(key=lambda x: x[1], reverse=True)
+        return matches

@@ -20,7 +20,7 @@ if __name__ == "__main__":
     data_handler = DataHandler(graph_path=GRAPH_PATH, data_dir=DATA_DIR)
     sparql_handler = SparqlHandler(graph=data_handler.graph, query_timeout_seconds=QUERY_TIMEOUT_SECONDS)
     embedding_handler = EmbeddingHandler(data_handler=data_handler)
-    relation_finder = QueryHandler(data_handler=data_handler)
+    query_handler = QueryHandler(data_handler=data_handler)
 
     chatbot = ChatbotHandler(
         username=os.getenv("SPEAKEASY_USERNAME", ""),
@@ -28,6 +28,6 @@ if __name__ == "__main__":
         data_handler=data_handler,
         sparql_handler=sparql_handler,
         embedding_handler=embedding_handler,
-        relation_finder=relation_finder
+        query_handler=query_handler
     )
     chatbot.listen()

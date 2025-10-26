@@ -27,7 +27,10 @@ class ChatbotHandler:
             room.post_messages("⚠️ Sorry, the knowledge graph isn't loaded yet. I can't process queries right now.")
             return
 
-        head_ent, pred_ent = self.query_handler.find_entity_in_query(message), self.query_handler.find_relation_in_query(message)
+        head_ent, pred_ent = self.query_handler.find_entities_in_query(message)[0][0], self.query_handler.find_relations_in_query(message)[0][0]
+        if not head_ent or not pred_ent:
+            room.post_messages("❓ I'm sorry, I couldn't identify the entity or relation in your query. Could you please rephrase?")
+            return
 
         self.sparql_handler.run_sparql_for_prompt(head_ent, pred_ent, room)
         self.embedding_handler.run_embedding_search(head_ent, pred_ent, room)
