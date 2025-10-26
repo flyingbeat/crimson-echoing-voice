@@ -33,7 +33,21 @@ class ChatbotHandler:
             return
 
         self.sparql_handler.run_sparql_for_prompt(head_ent, pred_ent, room)
-        self.embedding_handler.run_embedding_search(head_ent, pred_ent, room)
+
+        room.post_messages("\n🔎 Now searching the knowledge graph using embeddings...")
+        try:
+            best_ent_fwd, best_lbl_fwd, best_ent_rev, best_lbl_rev = self.embedding_handler.run_embedding_search(head_ent, pred_ent)
+        except KeyError as e:
+            room.post_messages(
+                f"⚠️ Couldn't perform embedding search. The entity or relation isn't in my embedding data: {e}"
+            )
+        except Exception as e:
+            room.post_messages(f"⚠️ Oops, something went wrong during the embedding search: {e}")
+
+        if best_lbl_fwd:
+            room.post_messages(f"Best match: {best_lbl_fwd}")
+        else:
+            room.post_messages(f"I found a match, but it doesn't have a label. Entity: {best_ent_fwd}")
 
 
     @staticmethod
