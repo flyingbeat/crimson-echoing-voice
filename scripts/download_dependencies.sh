@@ -2,6 +2,8 @@
 
 LOCAL_MODEL_URL="https://huggingface.co/LiquidAI/LFM2-1.2B-RAG-GGUF/resolve/main/LFM2-1.2B-RAG-Q8_0.gguf"
 LLAMA_CPP_URL="https://github.com/ggml-org/llama.cpp/releases/download/b6840/llama-b6840-bin-ubuntu-x64.zip"
+APACHE_JENA_URL="https://dlcdn.apache.org/jena/binaries/apache-jena-5.6.0.zip"
+APACHE_JENA_FUSEKI_URL="https://dlcdn.apache.org/jena/binaries/apache-jena-fuseki-5.6.0.zip"
 
 # Colors for better output
 GREEN='\033[0;32m'
@@ -30,12 +32,11 @@ echo -e "${GREEN}=== Loading Dependencies ===${NC}"
 echo "This script will download the following files:"
 echo "1. LFM2-1.2B-RAG model (~1.3GB)"
 echo "2. llama.cpp binary (~50MB)"
+echo "3. Apache Jena incl. Fuseki server (~90MB)"
 echo ""
 
 # Create directories if they don't exist
-mkdir -p ./models
 mkdir -p ./tmp
-mkdir -p ./services/llama-cpp
 
 # Download local model
 if ask_user "Do you want to download the LFM2-1.2B-RAG model?"; then
@@ -68,8 +69,6 @@ if ask_user "Do you want to download the llama.cpp binary?"; then
             unzip ./tmp/llama-cpp.zip -d ./services/llama-cpp/
             chmod +x ./services/llama-cpp/build/bin/llama-server
             echo -e "${GREEN}llama.cpp binary downloaded and extracted successfully!${NC}"
-            # Clean up zip file
-            rm -rf ./tmp
         else
             echo -e "${RED}Failed to download llama.cpp binary.${NC}"
         fi
@@ -77,6 +76,36 @@ if ask_user "Do you want to download the llama.cpp binary?"; then
 else
     echo -e "${YELLOW}Skipping llama.cpp binary download.${NC}"
 fi
+
+# Download SPARQL endpoint server apache fuseki jena
+if ask_user "Do you want to download the Apache Jena incl. Fuseki server?"; then
+    echo -e "${YELLOW}Downloading Apache Jena incl. Fuseki server...${NC}"
+    if [ -d "./services/fuseki" ]; then
+        echo -e "${YELLOW}Fuseki server already exists. Skipping download.${NC}"
+    else
+        wget $APACHE_JENA_URL -O ./tmp/apache-jena.zip
+        wget $APACHE_JENA_FUSEKI_URL -O ./tmp/apache-jena-fuseki.zip
+
+        if [ $? -eq 0 ]; then
+            echo -e "${YELLOW}Extracting Apache Jena...${NC}"
+            unzip ./tmp/apache-jena.zip -d ./services/
+            chmod +x ./services/apache-jena-5.6.0/bin/tdb2.tdbloader
+            echo -e "${GREEN}Apache Jena downloaded and extracted successfully!${NC}"
+
+            echo -e "${YELLOW}Extracting Apache Jena Fuseki...${NC}"
+            unzip ./tmp/apache-jena-fuseki.zip -d ./services/
+            chmod +x ./services/apache-jena-fuseki-5.6.0/fuseki-server
+            echo -e "${GREEN}Apache Jena Fuseki downloaded and extracted successfully!${NC}"
+        else
+            echo -e "${RED}Failed to download Fuseki server.${NC}"
+        fi
+    fi
+else
+    echo -e "${YELLOW}Skipping Fuseki server download.${NC}"
+fi
+
+# Clean up zip file
+rm -rf ./tmp
 
 echo ""
 echo -e "${GREEN}=== Dependency loading complete ===${NC}"

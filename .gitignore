@@ -36,6 +36,7 @@ MANIFEST
 models/
 # external services (e.g binaries)
 services/
+run/
 
 
 # Installer logs
