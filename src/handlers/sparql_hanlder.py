@@ -13,6 +13,7 @@ class SparqlHandler:
         self, entity_id: str, relation_id: str
     ) -> tuple[Optional[str], Optional[str]]:
         object_query = f"""
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) WHERE {{
                 <{entity_id}> <{relation_id}> ?obj .
                 OPTIONAL {{
@@ -21,6 +22,7 @@ class SparqlHandler:
             }}
         """
         subject_query = f"""
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             SELECT (COALESCE(?subjLabel, STR(?subj)) AS ?result) WHERE {{
                 ?subj <{relation_id}> <{entity_id}> .
                 OPTIONAL {{
