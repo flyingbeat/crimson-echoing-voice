@@ -35,10 +35,10 @@ CONTEXT_LENGTH="${CONTEXT_LENGTH:-$DEFAULT_CONTEXT_LENGTH}"
 PARALLEL_INSTANCES="${PARALLEL_INSTANCES:-$DEFAULT_PARALLEL_INSTANCES}"
 
 # Binary path
-LLAMA_SERVER="/build/bin/llama-server"
+LLAMA_SERVER="./services/llama-cpp/build/bin/llama-server"
 
 # Default model path
-DEFAULT_MODEL="./models/default-model.gguf"
+DEFAULT_MODEL="./models/LFM2-1.2B-RAG-Q8_0.gguf"
 
 # Use provided model path or default
 MODEL_PATH="${1:-$DEFAULT_MODEL}"
