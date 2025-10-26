@@ -87,6 +87,7 @@ class ChatbotHandler:
             )
 
         room.post_messages(f"📊 Searching for embedding-based answer...")
+        best_object_response_label, best_subject_response_label, best_object_response_id, best_subject_response_id = None, None, None, None
         try:
             (
                 best_object_response_id,
