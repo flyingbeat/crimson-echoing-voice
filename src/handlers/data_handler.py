@@ -1,7 +1,9 @@
-import os
 import csv
+import os
+
 import numpy as np
-from rdflib import Graph, Namespace, RDFS, URIRef
+from rdflib import RDFS, Graph
+
 
 class DataHandler:
     def __init__(self, graph_path, data_dir):
@@ -21,15 +23,15 @@ class DataHandler:
             self.relation_emb = np.load(self.relation_embeds_path)
 
             with open(self.entity_ids_path, 'r') as f:
-                self.ent2id = {URIRef(ent): int(idx) for idx, ent in csv.reader(f, delimiter='\t')}
+                self.ent2id = {str(ent): int(idx) for idx, ent in csv.reader(f, delimiter='\t')}
             self.id2ent = {v: k for k, v in self.ent2id.items()}
 
             with open(self.relation_ids_path, 'r') as f:
-                self.rel2id = {URIRef(rel): int(idx) for idx, rel in csv.reader(f, delimiter='\t')}
+                self.rel2id = {str(rel): int(idx) for idx, rel in csv.reader(f, delimiter='\t')}
             self.id2rel = {v: k for k, v in self.rel2id.items()}
 
             if self.graph:
-                self.ent2lbl = {ent: str(lbl) for ent, lbl in self.graph.subject_objects(RDFS.label)}
+                self.ent2lbl = {str(ent): str(lbl) for ent, lbl in self.graph.subject_objects(RDFS.label)}
                 self.lbl2ent = {lbl: ent for ent, lbl in self.ent2lbl.items()}
 
             print("Embedding data loaded successfully.")

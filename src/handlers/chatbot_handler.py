@@ -113,7 +113,7 @@ class ChatbotHandler:
         room.post_messages("🤖 Generating response with LLM...")
         try:
             factual_context = (
-                f"{entity_label} is {relation_label} of {object_response}"
+                f"{object_response} is {relation_label} of {entity_label}"
                 if object_response
                 else ""
             ) + (
@@ -123,7 +123,7 @@ class ChatbotHandler:
             )
 
             embedding_context = (
-                f"{entity_label} is {relation_label} of {best_object_response_label}"
+                f"{best_object_response_label} is {relation_label} of {entity_label}"
                 if best_object_response_label
                 else ""
             ) + (
