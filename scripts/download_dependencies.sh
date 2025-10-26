@@ -59,17 +59,17 @@ echo ""
 # Download llama.cpp binary
 if ask_user "Do you want to download the llama.cpp binary?"; then
     echo -e "${YELLOW}Downloading llama.cpp binary...${NC}"
-    if [ -f "./services/llama-cpp/bin/llama-server" ]; then
+    if [ -f "./services/llama-cpp/build/bin/llama-server" ]; then
         echo -e "${YELLOW}llama.cpp binary already exists. Skipping download.${NC}"
     else
         wget $LLAMA_CPP_URL -O ./tmp/llama-cpp.zip
         if [ $? -eq 0 ]; then
             echo -e "${YELLOW}Extracting llama.cpp binary...${NC}"
             unzip ./tmp/llama-cpp.zip -d ./services/llama-cpp/
-            chmod +x ./services/llama-cpp/bin/llama-server
+            chmod +x ./services/llama-cpp/build/bin/llama-server
             echo -e "${GREEN}llama.cpp binary downloaded and extracted successfully!${NC}"
             # Clean up zip file
-            rm ./tmp/llama-cpp.zip
+            rm -rf ./tmp
         else
             echo -e "${RED}Failed to download llama.cpp binary.${NC}"
         fi
