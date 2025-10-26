@@ -53,43 +53,91 @@ class ChatbotHandler:
             )
             return
 
-        head_ent, pred_ent = (
-            self.query_handler.find_entities_in_query(message)[0][0],
-            self.query_handler.find_relations_in_query(message)[0][0],
+        entity, relation = (
+            self.query_handler.find_entities_in_query(message)[0],
+            self.query_handler.find_relations_in_query(message)[0],
         )
-        if not head_ent or not pred_ent:
+
+        entity_id = str(entity[0]) if entity else None
+        entity_label = entity[2] if entity else None
+        relation_id = str(relation[0]) if relation else None
+        relation_label = relation[2] if relation else None
+
+        if not entity_id or not relation_id:
             room.post_messages(
                 "❓ I'm sorry, I couldn't identify the entity or relation in your query. Could you please rephrase?"
             )
             return
 
-        self.sparql_handler.run_sparql_for_prompt(head_ent, pred_ent, room)
-
-        room.post_messages("\n🔎 Now searching the knowledge graph using embeddings...")
+        room.post_messages("🔎 Searching the knowledge graph factually...")
         try:
-            best_ent_fwd, best_lbl_fwd, best_ent_rev, best_lbl_rev = self.embedding_handler.run_embedding_search(head_ent, pred_ent)
+            subject_response, object_response = (
+                self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
+            )
+            if object_response.startswith("http://www.wikidata.org/entity/"):
+                room.post_messages(
+                    f"🔎 I found a match, but it doesn't have a label. Entity: {object_response}"
+                )
+            else:
+                room.post_messages(f"🔎 Factual response: {object_response}")
+        except Exception as e:
+            room.post_messages(
+                f"⚠️ Oops, something went wrong during the SPARQL query: {e}"
+            )
+
+        room.post_messages(f"📊 Searching for embedding-based answer...")
+        try:
+            (
+                best_object_response_id,
+                best_object_response_label,
+                best_subject_response_id,
+                best_subject_response_label,
+            ) = self.embedding_handler.run_embedding_search(entity_id, relation_id)
+            if best_object_response_label:
+                room.post_messages(f"📊 Best match: {best_object_response_label}")
+            else:
+                room.post_messages(
+                    f"📊 I found a match, but it doesn't have a label. Entity: {best_object_response_id}"
+                )
         except KeyError as e:
             room.post_messages(
                 f"⚠️ Couldn't perform embedding search. The entity or relation isn't in my embedding data: {e}"
             )
         except Exception as e:
-            room.post_messages(f"⚠️ Oops, something went wrong during the embedding search: {e}")
+            room.post_messages(
+                f"⚠️ Oops, something went wrong during the embedding search: {e}"
+            )
 
-        if best_lbl_fwd:
-            room.post_messages(f"Best match: {best_lbl_fwd}")
-        else:
-            room.post_messages(f"I found a match, but it doesn't have a label. Entity: {best_ent_fwd}")
-        room.post_messages("🔎 Searching the knowledge graph factually...")
-        subject_response, object_response = self.sparql_handler.run_sparql_for_prompt(
-            head_ent, pred_ent
-        )
-        room.post_messages(f"🔎 Factual response: {object_response}")
-        room.post_messages(f"📊 Searching for embedding-based answer...")
-        self.embedding_handler.run_embedding_search(head_ent, pred_ent, room)
+        room.post_messages("🤖 Generating response with LLM...")
+        try:
+            factual_context = (
+                f"{entity_label} is {relation_label} of {object_response}"
+                if object_response
+                else ""
+            ) + (
+                f"{subject_response} is {relation_label} of {entity_label}"
+                if subject_response
+                else ""
+            )
 
-        context = "\n".join([subject_response, object_response])
-        llm_response = self.llm_handler.prompt(message, context=context)
-        room.post_messages(llm_response)
+            embedding_context = (
+                f"{entity_label} is {relation_label} of {best_object_response_label}"
+                if best_object_response_label
+                else ""
+            ) + (
+                f"{best_subject_response_label} is {relation_label} of {entity_label}."
+                if best_subject_response_label
+                else ""
+            )
+
+            llm_response = self.llm_handler.prompt(
+                message, context=f"{factual_context}\n{embedding_context}"
+            )
+            room.post_messages(llm_response)
+        except Exception as e:
+            room.post_messages(
+                f"⚠️ Oops, something went wrong during the LLM generation: {e}"
+            )
 
     @staticmethod
     def get_time() -> str:

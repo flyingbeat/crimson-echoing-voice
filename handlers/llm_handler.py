@@ -33,14 +33,14 @@ class PromptTemplate:
             f""""We have provided context information below."
             " - - - - - - - - - - -"
             {self.context}
-            " - - - - - - - - - - -"
+            " - - - - - - - - - - -"\n
             """
             if self.context
             else ""
         )
 
         formatted_user = (
-            f"{formatted_context}{self.user_prefix}{prompt}{self.user_suffix}".strip()
+            f"{formatted_context}{self.user_prefix}{prompt} {self.user_suffix}".strip()
         )
         return {
             "system": self.system,
@@ -97,6 +97,7 @@ class LLMHandler:
         model = model or self.default_model
 
         formatted = template.format(prompt)
+        logger.info(f"Prompt formatted for model {formatted}")
 
         messages = [
             {"role": "system", "content": formatted["system"]},

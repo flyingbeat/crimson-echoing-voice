@@ -10,11 +10,11 @@ class SparqlHandler:
         self.query_timeout_seconds = query_timeout_seconds
 
     def run_sparql_for_prompt(
-        self, head_ent: str, pred_ent: str
+        self, entity_id: str, relation_id: str
     ) -> tuple[Optional[str], Optional[str]]:
         object_query = f"""
             SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) WHERE {{
-                <{head_ent}> <{pred_ent}> ?obj .
+                <{entity_id}> <{relation_id}> ?obj .
                 OPTIONAL {{
                     ?obj rdfs:label ?objLabel .
                 }}
@@ -22,7 +22,7 @@ class SparqlHandler:
         """
         subject_query = f"""
             SELECT (COALESCE(?subjLabel, STR(?subj)) AS ?result) WHERE {{
-                ?subj <{pred_ent}> <{head_ent}> .
+                ?subj <{relation_id}> <{entity_id}> .
                 OPTIONAL {{
                     ?subj rdfs:label ?subjLabel .
                 }}
