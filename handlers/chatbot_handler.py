@@ -1,13 +1,33 @@
 import time
+
 from speakeasypy import Chatroom, EventType, Speakeasy
 
+from handlers.data_handler import DataHandler
+from handlers.embedding_handler import EmbeddingHandler
+from handlers.llm_handler import LLMHandler
+from handlers.query_handler import QueryHandler
+from handlers.sparql_hanlder import SparqlHandler
+
+
 class ChatbotHandler:
-    def __init__(self, username: str, password: str, data_handler, sparql_handler, embedding_handler, query_handler):
-        self.speakeasy = Speakeasy(host="https://speakeasy.ifi.uzh.ch", username=username, password=password)
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        data_handler: DataHandler,
+        sparql_handler: SparqlHandler,
+        embedding_handler: EmbeddingHandler,
+        query_handler: QueryHandler,
+        llm_handler: LLMHandler,
+    ):
+        self.speakeasy = Speakeasy(
+            host="https://speakeasy.ifi.uzh.ch", username=username, password=password
+        )
         self.data_handler = data_handler
         self.sparql_handler = sparql_handler
         self.embedding_handler = embedding_handler
         self.query_handler = query_handler
+        self.llm_handler = llm_handler
 
         self.speakeasy.login()
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
@@ -18,18 +38,29 @@ class ChatbotHandler:
         self.speakeasy.start_listening()
 
     def on_new_reaction(self, reaction: str, message_ordinal: int, room: Chatroom):
-        print(f"[{self.get_time()}] Received reaction '{reaction}' on message #{message_ordinal} in room {room.room_id}")
+        print(
+            f"[{self.get_time()}] Received reaction '{reaction}' on message #{message_ordinal} in room {room.room_id}"
+        )
         room.post_messages(f"Thanks for reacting with '{reaction}'! 👍")
 
     def on_new_message(self, message: str, room: Chatroom):
-        print(f"[{self.get_time()}] Processing message in room {room.room_id}: {message}")
+        print(
+            f"[{self.get_time()}] Processing message in room {room.room_id}: {message}"
+        )
         if not self.data_handler.graph:
-            room.post_messages("⚠️ Sorry, the knowledge graph isn't loaded yet. I can't process queries right now.")
+            room.post_messages(
+                "⚠️ Sorry, the knowledge graph isn't loaded yet. I can't process queries right now."
+            )
             return
 
-        head_ent, pred_ent = self.query_handler.find_entities_in_query(message)[0][0], self.query_handler.find_relations_in_query(message)[0][0]
+        head_ent, pred_ent = (
+            self.query_handler.find_entities_in_query(message)[0][0],
+            self.query_handler.find_relations_in_query(message)[0][0],
+        )
         if not head_ent or not pred_ent:
-            room.post_messages("❓ I'm sorry, I couldn't identify the entity or relation in your query. Could you please rephrase?")
+            room.post_messages(
+                "❓ I'm sorry, I couldn't identify the entity or relation in your query. Could you please rephrase?"
+            )
             return
 
         self.sparql_handler.run_sparql_for_prompt(head_ent, pred_ent, room)
@@ -48,7 +79,17 @@ class ChatbotHandler:
             room.post_messages(f"Best match: {best_lbl_fwd}")
         else:
             room.post_messages(f"I found a match, but it doesn't have a label. Entity: {best_ent_fwd}")
+        room.post_messages("🔎 Searching the knowledge graph factually...")
+        subject_response, object_response = self.sparql_handler.run_sparql_for_prompt(
+            head_ent, pred_ent
+        )
+        room.post_messages(f"🔎 Factual response: {object_response}")
+        room.post_messages(f"📊 Searching for embedding-based answer...")
+        self.embedding_handler.run_embedding_search(head_ent, pred_ent, room)
 
+        context = "\n".join([subject_response, object_response])
+        llm_response = self.llm_handler.prompt(message, context=context)
+        room.post_messages(llm_response)
 
     @staticmethod
     def get_time() -> str:

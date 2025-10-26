@@ -1,4 +1,6 @@
 import signal
+from typing import Optional
+
 from speakeasypy import Chatroom
 
 
@@ -7,8 +9,10 @@ class SparqlHandler:
         self.graph = graph
         self.query_timeout_seconds = query_timeout_seconds
 
-    def run_sparql_for_prompt(self, head_ent, pred_ent, room: Chatroom):
-        query = f"""
+    def run_sparql_for_prompt(
+        self, head_ent: str, pred_ent: str
+    ) -> tuple[Optional[str], Optional[str]]:
+        object_query = f"""
             SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) WHERE {{
                 <{head_ent}> <{pred_ent}> ?obj .
                 OPTIONAL {{
@@ -16,11 +20,20 @@ class SparqlHandler:
                 }}
             }}
         """
-        room.post_messages(
-            f"🔎 Searching the knowledge graph factually...")
-        self._execute_sparql_query(query, room)
+        subject_query = f"""
+            SELECT (COALESCE(?subjLabel, STR(?subj)) AS ?result) WHERE {{
+                ?subj <{pred_ent}> <{head_ent}> .
+                OPTIONAL {{
+                    ?subj rdfs:label ?subjLabel .
+                }}
+            }}
+        """
 
-    def _execute_sparql_query(self, query: str, room: Chatroom):
+        return self._execute_sparql_query(subject_query), self._execute_sparql_query(
+            object_query
+        )
+
+    def _execute_sparql_query(self, query: str) -> Optional[str]:
         signal.signal(signal.SIGALRM, self._timeout_handler)
         signal.alarm(self.query_timeout_seconds)
 
@@ -29,16 +42,14 @@ class SparqlHandler:
             result_list = [", ".join(str(item) for item in row) for row in results]
 
             if not result_list:
-                room.post_messages("No direct matches found in the knowledge graph.")
-                return
+                return None
 
-            response_text = self._format_results(result_list)
-            room.post_messages(response_text)
+            return self._format_results(result_list)
 
         except TimeoutException as e:
-            room.post_messages(f"Sorry, the query took too long to execute. {e}")
+            raise TimeoutException(f"Sorry, the query took too long to execute. {e}")
         except Exception as e:
-            room.post_messages(f"Oops, I ran into an issue processing that query: {e}")
+            raise RuntimeError(f"Oops, I ran into an issue processing that query: {e}")
         finally:
             signal.alarm(0)
 
@@ -50,7 +61,9 @@ class SparqlHandler:
         return f"Found {len(results)} results:\n  • {formatted}"
 
     def _timeout_handler(self, signum, frame):
-        raise TimeoutException(f"Query execution timed out after {self.query_timeout_seconds} seconds.")
+        raise TimeoutException(
+            f"Query execution timed out after {self.query_timeout_seconds} seconds."
+        )
 
 
 class TimeoutException(Exception):
