@@ -1,9 +1,10 @@
-from speakeasypy import Chatroom
 from sklearn.metrics import pairwise_distances
+
+from handlers.data_handler import DataHandler
 
 
 class EmbeddingHandler:
-    def __init__(self, data_handler):
+    def __init__(self, data_handler: DataHandler):
         self.data_handler = data_handler
 
     def run_embedding_search(self, head_ent, pred_ent):
@@ -11,7 +12,9 @@ class EmbeddingHandler:
         pred_emb = self.data_handler.relation_emb[self.data_handler.rel2id[pred_ent]]
 
         def find_nearest(target_emb):
-            dist = pairwise_distances(target_emb.reshape(1, -1), self.data_handler.entity_emb).reshape(-1)
+            dist = pairwise_distances(
+                target_emb.reshape(1, -1), self.data_handler.entity_emb
+            ).reshape(-1)
             best_idx = int(dist.argmin())
             best_ent = self.data_handler.id2ent[best_idx]
             best_label = self.data_handler.ent2lbl.get(best_ent)

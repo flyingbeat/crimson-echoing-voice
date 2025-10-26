@@ -1,27 +1,49 @@
 import rdflib
+from SPARQLWrapper import JSON, SPARQLWrapper
 from thefuzz import fuzz, process
 
-WD = rdflib.Namespace('http://www.wikidata.org/entity/')
-WDT = rdflib.Namespace('http://www.wikidata.org/prop/direct/')
-DDIS = rdflib.Namespace('http://ddis.ch/atai/')
+WD = rdflib.Namespace("http://www.wikidata.org/entity/")
+WDT = rdflib.Namespace("http://www.wikidata.org/prop/direct/")
+DDIS = rdflib.Namespace("http://ddis.ch/atai/")
 RDFS = rdflib.namespace.RDFS
-SCHEMA = rdflib.Namespace('http://schema.org/')
+SCHEMA = rdflib.Namespace("http://schema.org/")
 
 EMBEDDING_REL_MAPPING = {
     "director": ["director", "directed", "directs", "direct"],
     "award": ["award", "oscar", "prize"],
-    'publication date': ['release', 'date', 'released', 'releases', 'release date', 'publication', 'launch',
-                         'broadcast', 'launched'],
-    'executive producer': ['showrunner', 'executive producer'],
-    'screenwriter': ['screenwriter', 'scriptwriter', 'writer', 'story'],
-    'film editor': ['editor', 'film editor'],
-    'box office': ['box', 'office', 'funding', 'box office'],
-    'cost': ['budget', 'cost'],
-    'nominated for': ['nomination', 'award', 'finalist', 'shortlist', 'selection', 'nominated for'],
-    'production company': ['company', 'company of production', "produced", 'production company'],
-    'country of origin': ['origin', 'country', 'country of origin'],
-    'cast member': ['actor', 'actress', 'cast', 'cast member'],
-    'genre': ['type', 'kind', 'genre'],
+    "publication date": [
+        "release",
+        "date",
+        "released",
+        "releases",
+        "release date",
+        "publication",
+        "launch",
+        "broadcast",
+        "launched",
+    ],
+    "executive producer": ["showrunner", "executive producer"],
+    "screenwriter": ["screenwriter", "scriptwriter", "writer", "story"],
+    "film editor": ["editor", "film editor"],
+    "box office": ["box", "office", "funding", "box office"],
+    "cost": ["budget", "cost"],
+    "nominated for": [
+        "nomination",
+        "award",
+        "finalist",
+        "shortlist",
+        "selection",
+        "nominated for",
+    ],
+    "production company": [
+        "company",
+        "company of production",
+        "produced",
+        "production company",
+    ],
+    "country of origin": ["origin", "country", "country of origin"],
+    "cast member": ["actor", "actress", "cast", "cast member"],
+    "genre": ["type", "kind", "genre"],
 }
 
 
@@ -40,9 +62,25 @@ class QueryHandler:
 
         print("Loading and filtering relation labels directly from the graph...")
         labels = {}
-        for s, p, o in self.data_handler.graph.triples((None, RDFS.label, None)):
-            if isinstance(s, rdflib.URIRef) and str(s).startswith(str(WDT)):
-                labels[s] = str(o)
+
+        try:
+            query = f"""
+            SELECT ?relation ?label
+            WHERE {{
+                ?relation <http://www.w3.org/2000/01/rdf-schema#label> ?label .
+                FILTER(STRSTARTS(STR(?relation), "{str(WDT)}"))
+            }}
+            """
+            self.data_handler.graph.setQuery(query)
+            results = self.data_handler.graph.query().convert()
+
+            for result in results["results"]["bindings"]:
+                relation_uri = rdflib.URIRef(result["relation"]["value"])
+                label = str(result["label"]["value"])
+                labels[relation_uri] = label
+
+        except Exception as e:
+            print(f"Error loading relation labels: {e}")
 
         print(f"Found {len(labels)} direct relation labels in the graph.")
         return labels
@@ -54,9 +92,25 @@ class QueryHandler:
 
         print("Loading and filtering entity labels directly from the graph...")
         labels = {}
-        for s, p, o in self.data_handler.graph.triples((None, RDFS.label, None)):
-            if isinstance(s, rdflib.URIRef) and str(s).startswith(str(WD)):
-                labels[s] = str(o)
+
+        try:
+            query = f"""
+            SELECT ?entity ?label
+            WHERE {{
+                ?entity <http://www.w3.org/2000/01/rdf-schema#label> ?label .
+                FILTER(STRSTARTS(STR(?entity), "{str(WD)}"))
+            }}
+            """
+            self.data_handler.graph.setQuery(query)
+            results = self.data_handler.graph.query().convert()
+
+            for result in results["results"]["bindings"]:
+                entity_uri = rdflib.URIRef(result["entity"]["value"])
+                label = str(result["label"]["value"])
+                labels[entity_uri] = label
+
+        except Exception as e:
+            print(f"Error loading entity labels: {e}")
 
         print(f"Found {len(labels)} entity labels in the graph.")
         return labels
@@ -71,7 +125,9 @@ class QueryHandler:
             synonym_map[rel_uri] = list(set(synonyms))
         return synonym_map
 
-    def find_relations_in_query(self, query: str) -> list[tuple[rdflib.URIRef, int, str]]:
+    def find_relations_in_query(
+        self, query: str
+    ) -> list[tuple[rdflib.URIRef, int, str]]:
         if not self.relation_labels:
             print("Error: Relation labels are not loaded. Cannot find relations.")
             return []
@@ -80,7 +136,9 @@ class QueryHandler:
         matches = []
 
         for rel_uri, synonyms in self.relation_synonyms.items():
-            best_match, score = process.extractOne(query_lower, synonyms, scorer=fuzz.token_set_ratio)
+            best_match, score = process.extractOne(
+                query_lower, synonyms, scorer=fuzz.token_set_ratio
+            )
 
             if score > self.fuzzy_threshold:
                 canonical_label = self.relation_labels.get(rel_uri, "")
@@ -90,7 +148,9 @@ class QueryHandler:
 
         return matches
 
-    def find_entities_in_query(self, query: str) -> list[tuple[rdflib.URIRef, int, str]]:
+    def find_entities_in_query(
+        self, query: str
+    ) -> list[tuple[rdflib.URIRef, int, str]]:
         if not self.entity_labels:
             print("Error: Entity labels are not loaded. Cannot find entities.")
             return []

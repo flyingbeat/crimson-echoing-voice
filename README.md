@@ -30,6 +30,13 @@ Demonstrate the chatbot can:
 
 ## Setup
 
+### Prerequisites
+
+To run fuseki server you need
+
+- python3
+- java (for nuvolos: `conda install -c conda-forge openjdk=21`)
+
 ### .env file template
 
 ```
@@ -50,9 +57,9 @@ pip install -r requirements.txt
 # Install external dependencies
 ./scripts/download_dependencies.sh
 
-# Create TDB2 database (only done once)
-export JENA_HOME="<absolute_path_to_services/apache-jena>"
-./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database <path_to_graph>
+# Create TDB2 database (only done once or when graph changes)
+export JENA_HOME="./services/apache-jena-5.6.0" # path to apache jena
+./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database /space_mounts/atai-hs25/dataset/graph.nt # local path to graph
 
 # start fuseki-server and llama-server
 ./scripts/start_services.sh

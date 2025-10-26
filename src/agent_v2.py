@@ -15,11 +15,11 @@ if __name__ == "__main__":
     if os.name == "nt":
         print("Warning: The query timeout feature is not supported on Windows.")
 
-    GRAPH_PATH = "/space_mounts/atai-hs25/dataset/graph.nt"
+    SPARQL_ENDPOINT = "http://localhost:3030/atai/sparql"
     DATA_DIR = "/space_mounts/atai-hs25/dataset/embeddings"
     QUERY_TIMEOUT_SECONDS = 10
 
-    data_handler = DataHandler(graph_path=GRAPH_PATH, data_dir=DATA_DIR)
+    data_handler = DataHandler(sparql_endpoint=SPARQL_ENDPOINT, data_dir=DATA_DIR)
     sparql_handler = SparqlHandler(
         graph=data_handler.graph, query_timeout_seconds=QUERY_TIMEOUT_SECONDS
     )

@@ -122,9 +122,13 @@ class LLMHandler:
             self._update_progress("Sending request to LLM")
 
             if stream:
-                return self._handle_streaming_response(request_params, formatted.get("assistant_prefix"))
+                return self._handle_streaming_response(
+                    request_params, formatted.get("assistant_prefix")
+                )
             else:
-                return self._handle_standard_response(request_params, formatted.get("assistant_prefix"))
+                return self._handle_standard_response(
+                    request_params, formatted.get("assistant_prefix")
+                )
 
         except Exception as e:
             logger.error(f"Error during LLM request: {e}")

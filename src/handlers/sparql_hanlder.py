@@ -1,8 +1,11 @@
 import signal
 from typing import Optional
 
+from SPARQLWrapper import SPARQLWrapper
+
+
 class SparqlHandler:
-    def __init__(self, graph, query_timeout_seconds):
+    def __init__(self, graph: SPARQLWrapper, query_timeout_seconds: int):
         self.graph = graph
         self.query_timeout_seconds = query_timeout_seconds
 
@@ -28,7 +31,7 @@ class SparqlHandler:
 
         return (
             self._execute_sparql_query(subject_query),
-            self._execute_sparql_query(object_query)
+            self._execute_sparql_query(object_query),
         )
 
     def _execute_sparql_query(self, query: str) -> Optional[str]:
@@ -36,9 +39,12 @@ class SparqlHandler:
         signal.alarm(self.query_timeout_seconds)
 
         try:
-            results = self.graph.query(query)
-            for row in results:
-                return str(row[0])
+            self.graph.setQuery(query)
+            results = self.graph.queryAndConvert()
+
+            if results["results"]["bindings"]:
+                first_result = results["results"]["bindings"][0]
+                return str(first_result["result"]["value"])
             return None
 
         except TimeoutException as e:

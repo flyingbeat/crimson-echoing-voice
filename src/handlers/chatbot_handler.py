@@ -75,7 +75,9 @@ class ChatbotHandler:
             subject_response, object_response = (
                 self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
             )
-            if object_response and object_response.startswith("http://www.wikidata.org/entity/"):
+            if object_response and object_response.startswith(
+                "http://www.wikidata.org/entity/"
+            ):
                 room.post_messages(
                     f"🔎 I found a match, but it doesn't have a label. Entity: {object_response}"
                 )
@@ -87,7 +89,12 @@ class ChatbotHandler:
             )
 
         room.post_messages(f"📊 Searching for embedding-based answer...")
-        best_object_response_label, best_subject_response_label, best_object_response_id, best_subject_response_id = None, None, None, None
+        (
+            best_object_response_label,
+            best_subject_response_label,
+            best_object_response_id,
+            best_subject_response_id,
+        ) = (None, None, None, None)
         try:
             (
                 best_object_response_id,
