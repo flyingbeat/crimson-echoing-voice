@@ -53,10 +53,11 @@ class ChatbotHandler:
             )
             return
 
-        entity, relation = (
-            self.query_handler.find_entities_in_query(message)[0],
-            self.query_handler.find_relations_in_query(message)[0],
-        )
+        entities = self.query_handler.find_entities_in_query(message)
+        relations = self.query_handler.find_relations_in_query(message)
+
+        entity = entities[0] if entities else None
+        relation = relations[0] if relations else None
 
         entity_id = str(entity[0]) if entity else None
         entity_label = entity[2] if entity else None
@@ -74,7 +75,7 @@ class ChatbotHandler:
             subject_response, object_response = (
                 self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
             )
-            if object_response.startswith("http://www.wikidata.org/entity/"):
+            if object_response and object_response.startswith("http://www.wikidata.org/entity/"):
                 room.post_messages(
                     f"🔎 I found a match, but it doesn't have a label. Entity: {object_response}"
                 )
