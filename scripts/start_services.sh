@@ -52,7 +52,9 @@ fi
 echo "Starting llama-server with model: $MODEL_PATH"
 
 # Start llama-server with the specified model
-"$LLAMA_SERVER" \
+tmux kill-session -t llama-server 2>/dev/null
+
+tmux new -s llama-server -d "$LLAMA_SERVER" \
     --model "$MODEL_PATH" \
     --threads 4 \
     --port 8080 \
