@@ -17,7 +17,7 @@ class SparqlHandler:
             PREFIX schema: <http://schema.org/>
 
 
-            (COALESCE(?objLabel, STR(?obj)) AS ?result) (COALESCE(?objDesc, "") AS ?description) {{
+            SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) (COALESCE(?objDesc, "") AS ?description) {{
                 <{entity_id}> <{relation_id}> ?obj .
                 OPTIONAL {{
                     ?obj rdfs:label ?objLabel .
