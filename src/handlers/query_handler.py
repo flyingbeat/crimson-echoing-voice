@@ -21,6 +21,7 @@ EMBEDDING_REL_MAPPING = {
         "launch",
         "broadcast",
         "launched",
+        "come out",
     ],
     "executive producer": ["showrunner", "executive producer"],
     "screenwriter": ["screenwriter", "scriptwriter", "writer", "story"],

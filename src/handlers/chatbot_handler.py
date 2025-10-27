@@ -124,7 +124,7 @@ class ChatbotHandler:
                 ) = self.embedding_handler.run_embedding_search(entity_id, relation_id)
                 if best_object_response_label:
                     room.post_messages(
-                        f"📊 Best match: {best_object_response_label} ({self.sparql_handler.get_instance_of(best_object_response_id).split('/')[-1]})"
+                        f"📊 Best match: {best_object_response_label} (type: {self.sparql_handler.get_instance_of(best_object_response_id).split('/')[-1]})"
                     )
                 else:
                     room.post_messages(
