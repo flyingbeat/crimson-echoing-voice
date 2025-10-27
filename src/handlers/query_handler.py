@@ -162,10 +162,17 @@ class QueryHandler:
             if not entity_label:
                 continue
 
-            score = fuzz.WRatio(entity_label.lower(), query_lower)
+            entity_label_lower = entity_label.lower()
 
-            if score > self.fuzzy_threshold:
+            if entity_label_lower in query_lower:
+                score = 100 + len(entity_label_lower)
                 matches.append((entity_uri, score, entity_label))
+            else:
+                score = fuzz.partial_ratio(entity_label_lower, query_lower)
 
-        matches.sort(key=lambda x: x[1], reverse=True)
+                if score > self.fuzzy_threshold:
+                    adjusted_score = score + (len(entity_label_lower) * 0.5)
+                    matches.append((entity_uri, int(adjusted_score), entity_label))
+
+        matches.sort(key=lambda x: (x[1], len(x[2])), reverse=True)
         return matches
