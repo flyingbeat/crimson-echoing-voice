@@ -93,6 +93,7 @@ class ChatbotHandler:
                 subject_responses, object_responses = (
                     self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
                 )
+                non_wikidata_items = []
                 if object_responses and not (
                     non_wikidata_items := [
                         item
@@ -105,7 +106,7 @@ class ChatbotHandler:
                     )
                 else:
                     room.post_messages(
-                        f"🔎 Factual response: {' and '.join(non_wikidata_items)}"
+                        f"🔎 Factual response: {' and '.join(non_wikidata_items) if non_wikidata_items else 'No valid responses found.'}"
                     )
             except Exception as e:
                 room.post_messages(
