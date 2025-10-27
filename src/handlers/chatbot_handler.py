@@ -70,52 +70,62 @@ class ChatbotHandler:
             )
             return
 
-        room.post_messages("🔎 Searching the knowledge graph factually...")
-        try:
-            subject_response, object_response = (
-                self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
-            )
-            if object_response and object_response.startswith(
-                "http://www.wikidata.org/entity/"
-            ):
-                room.post_messages(
-                    f"🔎 I found a match, but it doesn't have a label. Entity: {object_response}"
-                )
-            else:
-                room.post_messages(f"🔎 Factual response: {object_response}")
-        except Exception as e:
-            room.post_messages(
-                f"⚠️ Oops, something went wrong during the SPARQL query: {e}"
-            )
+        msg_lower = message.lower()
+        run_factual = "embedding" not in msg_lower
+        run_embedding = "factual" not in msg_lower
 
-        room.post_messages(f"📊 Searching for embedding-based answer...")
+        # initialize variables used later so LLM context building is safe even if blocks are skipped
+        subject_response = None
+        object_response = None
         (
             best_object_response_label,
             best_subject_response_label,
             best_object_response_id,
             best_subject_response_id,
         ) = (None, None, None, None)
-        try:
-            (
-                best_object_response_id,
-                best_object_response_label,
-                best_subject_response_id,
-                best_subject_response_label,
-            ) = self.embedding_handler.run_embedding_search(entity_id, relation_id)
-            if best_object_response_label:
-                room.post_messages(f"📊 Best match: {best_object_response_label}")
-            else:
-                room.post_messages(
-                    f"📊 I found a match, but it doesn't have a label. Entity: {best_object_response_id}"
+
+        if run_factual:
+            room.post_messages("🔎 Searching the knowledge graph factually...")
+            try:
+                subject_response, object_response = (
+                    self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
                 )
-        except KeyError as e:
-            room.post_messages(
-                f"⚠️ Couldn't perform embedding search. The entity or relation isn't in my embedding data: {e}"
-            )
-        except Exception as e:
-            room.post_messages(
-                f"⚠️ Oops, something went wrong during the embedding search: {e}"
-            )
+                if object_response and object_response.startswith(
+                    "http://www.wikidata.org/entity/"
+                ):
+                    room.post_messages(
+                        f"🔎 I found a match, but it doesn't have a label. Entity: {object_response}"
+                    )
+                else:
+                    room.post_messages(f"🔎 Factual response: {object_response}")
+            except Exception as e:
+                room.post_messages(
+                    f"⚠️ Oops, something went wrong during the SPARQL query: {e}"
+                )
+
+        if run_embedding:
+            room.post_messages(f"📊 Searching for embedding-based answer...")
+            try:
+                (
+                    best_object_response_id,
+                    best_object_response_label,
+                    best_subject_response_id,
+                    best_subject_response_label,
+                ) = self.embedding_handler.run_embedding_search(entity_id, relation_id)
+                if best_object_response_label:
+                    room.post_messages(f"📊 Best match: {best_object_response_label}")
+                else:
+                    room.post_messages(
+                        f"📊 I found a match, but it doesn't have a label. Entity: {best_object_response_id}"
+                    )
+            except KeyError as e:
+                room.post_messages(
+                    f"⚠️ Couldn't perform embedding search. The entity or relation isn't in my embedding data: {e}"
+                )
+            except Exception as e:
+                room.post_messages(
+                    f"⚠️ Oops, something went wrong during the embedding search: {e}"
+                )
 
         room.post_messages("🤖 Generating response with LLM...")
         try:
