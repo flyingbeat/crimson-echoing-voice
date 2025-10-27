@@ -14,19 +14,30 @@ class SparqlHandler:
     ) -> tuple[Optional[list[str]], Optional[list[str]]]:
         object_query = f"""
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) WHERE {{
+            PREFIX schema: <http://schema.org/>
+
+
+            (COALESCE(?objLabel, STR(?obj)) AS ?result) (COALESCE(?objDesc, "") AS ?description) {{
                 <{entity_id}> <{relation_id}> ?obj .
                 OPTIONAL {{
                     ?obj rdfs:label ?objLabel .
+                }}
+                OPTIONAL {{
+                    ?obj schema:description ?objDesc .
                 }}
             }}
         """
         subject_query = f"""
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            SELECT (COALESCE(?subjLabel, STR(?subj)) AS ?result) WHERE {{
+            PREFIX schema: <http://schema.org/>
+
+            SELECT (COALESCE(?subjLabel, STR(?subj)) AS ?result) (COALESCE(?subjDesc, "") AS ?description) WHERE {{
                 ?subj <{relation_id}> <{entity_id}> .
                 OPTIONAL {{
                     ?subj rdfs:label ?subjLabel .
+                }}
+                OPTIONAL {{
+                    ?subj schema:description ?subjDesc .
                 }}
             }}
         """
@@ -46,7 +57,7 @@ class SparqlHandler:
 
             if results["results"]["bindings"]:
                 return [
-                    str(res["result"]["value"])
+                    str(res["result"]["value"] + f" ({res["description"]["value"]})")
                     for res in results["results"]["bindings"]
                 ]
             return None
