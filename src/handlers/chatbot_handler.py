@@ -160,14 +160,12 @@ class ChatbotHandler:
                 else ""
             )
 
-            context_available = factual_context or embedding_context
+            context = factual_context if factual_context else embedding_context
 
-            if context_available:
+            if context:
 
                 room.post_messages("🤖 Generating response with LLM...")
-                llm_response = self.llm_handler.prompt(
-                    message, context=f"{factual_context}\n{embedding_context}"
-                )
+                llm_response = self.llm_handler.prompt(message, context=context)
 
                 room.post_messages(llm_response)
 
