@@ -11,7 +11,7 @@ class SparqlHandler:
 
     def run_sparql_for_prompt(
         self, entity_id: str, relation_id: str
-    ) -> tuple[Optional[str], Optional[str]]:
+    ) -> tuple[Optional[list[str]], Optional[list[str]]]:
         object_query = f"""
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) WHERE {{
@@ -36,7 +36,7 @@ class SparqlHandler:
             self._execute_sparql_query(object_query),
         )
 
-    def _execute_sparql_query(self, query: str) -> Optional[str]:
+    def _execute_sparql_query(self, query: str) -> Optional[list[str]]:
         signal.signal(signal.SIGALRM, self._timeout_handler)
         signal.alarm(self.query_timeout_seconds)
 
@@ -45,8 +45,10 @@ class SparqlHandler:
             results = self.graph.queryAndConvert()
 
             if results["results"]["bindings"]:
-                first_result = results["results"]["bindings"][0]
-                return str(first_result["result"]["value"])
+                return [
+                    str(res["result"]["value"])
+                    for res in results["results"]["bindings"]
+                ]
             return None
 
         except TimeoutException as e:

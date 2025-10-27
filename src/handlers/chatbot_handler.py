@@ -75,8 +75,8 @@ class ChatbotHandler:
         run_embedding = "factual" not in msg_lower
 
         # initialize variables used later so LLM context building is safe even if blocks are skipped
-        subject_response = None
-        object_response = None
+        subject_responses = []
+        object_responses = []
         (
             best_object_response_label,
             best_subject_response_label,
@@ -87,17 +87,23 @@ class ChatbotHandler:
         if run_factual:
             room.post_messages("🔎 Searching the knowledge graph factually...")
             try:
-                subject_response, object_response = (
+                subject_responses, object_responses = (
                     self.sparql_handler.run_sparql_for_prompt(entity_id, relation_id)
                 )
-                if object_response and object_response.startswith(
-                    "http://www.wikidata.org/entity/"
+                if object_responses and not (
+                    non_wikidata_items := [
+                        item
+                        for item in object_responses
+                        if not item.startswith("http://www.wikidata.org/entity/")
+                    ]
                 ):
                     room.post_messages(
-                        f"🔎 I found a match, but it doesn't have a label. Entity: {object_response}"
+                        f"🔎 I found a match, but it doesn't have a label. Entity: {" and ".join(object_responses)}"
                     )
                 else:
-                    room.post_messages(f"🔎 Factual response: {object_response}")
+                    room.post_messages(
+                        f"🔎 Factual response: {' and '.join(non_wikidata_items)}"
+                    )
             except Exception as e:
                 room.post_messages(
                     f"⚠️ Oops, something went wrong during the SPARQL query: {e}"
@@ -130,12 +136,12 @@ class ChatbotHandler:
         room.post_messages("🤖 Generating response with LLM...")
         try:
             factual_context = (
-                f"{object_response} is {relation_label} of {entity_label}"
-                if object_response
+                f"{" and ".join(object_responses)} is {relation_label} of {entity_label}"
+                if object_responses
                 else ""
             ) + (
-                f"{subject_response} is {relation_label} of {entity_label}"
-                if subject_response
+                f"{" and ".join(subject_responses)} is {relation_label} of {entity_label}"
+                if subject_responses
                 else ""
             )
 
