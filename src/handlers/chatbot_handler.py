@@ -133,7 +133,6 @@ class ChatbotHandler:
                     f"⚠️ Oops, something went wrong during the embedding search: {e}"
                 )
 
-        room.post_messages("🤖 Generating response with LLM...")
         try:
             factual_context = (
                 f"{" and ".join(object_responses)} is {relation_label} of {entity_label}"
@@ -155,10 +154,17 @@ class ChatbotHandler:
                 else ""
             )
 
-            llm_response = self.llm_handler.prompt(
-                message, context=f"{factual_context}\n{embedding_context}"
-            )
-            room.post_messages(llm_response)
+            context_available = factual_context or embedding_context
+
+            if context_available:
+
+                room.post_messages("🤖 Generating response with LLM...")
+                llm_response = self.llm_handler.prompt(
+                    message, context=f"{factual_context}\n{embedding_context}"
+                )
+
+                room.post_messages(llm_response)
+
         except Exception as e:
             room.post_messages(
                 f"⚠️ Oops, something went wrong during the LLM generation: {e}"
