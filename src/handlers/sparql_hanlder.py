@@ -57,7 +57,7 @@ class SparqlHandler:
 
             if results["results"]["bindings"]:
                 return [
-                    str(res["result"]["value"] + f" ({res["description"]["value"]})")
+                    str(res["result"]["value"])
                     for res in results["results"]["bindings"]
                 ]
             return None

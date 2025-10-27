@@ -61,6 +61,7 @@ class ChatbotHandler:
 
         entity_id = str(entity[0]) if entity else None
         entity_label = entity[2] if entity else None
+        entity_description = entity[3] if entity else None
         relation_id = str(relation[0]) if relation else None
         relation_label = relation[2] if relation else None
 
@@ -83,7 +84,9 @@ class ChatbotHandler:
             best_object_response_id,
             best_subject_response_id,
         ) = (None, None, None, None)
-
+        room.post_messages(
+            f"Let me figure out the answer for your question about the {relation_label} of {entity_label} ({entity_description})..."
+        )
         if run_factual:
             room.post_messages("🔎 Searching the knowledge graph factually...")
             try:
@@ -137,21 +140,21 @@ class ChatbotHandler:
 
         try:
             factual_context = (
-                f"{" and ".join(object_responses)} is {relation_label} of {entity_label}"
+                f"{" and ".join(object_responses)} is {relation_label} of {entity_label} ({entity_description})"
                 if object_responses
                 else ""
             ) + (
-                f"{" and ".join(subject_responses)} is {relation_label} of {entity_label}"
+                f"{" and ".join(subject_responses)} is {relation_label} of {entity_label} ({entity_description})"
                 if subject_responses
                 else ""
             )
 
             embedding_context = (
-                f"{best_object_response_label} is {relation_label} of {entity_label}"
+                f"{best_object_response_label} is {relation_label} of {entity_label} ({entity_description})"
                 if best_object_response_label
                 else ""
             ) + (
-                f"{best_subject_response_label} is {relation_label} of {entity_label}."
+                f"{best_subject_response_label} is {relation_label} of {entity_label} ({entity_description})"
                 if best_subject_response_label
                 else ""
             )

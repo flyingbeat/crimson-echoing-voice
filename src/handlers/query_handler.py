@@ -53,6 +53,7 @@ class QueryHandler:
         self.fuzzy_threshold = fuzzy_threshold
         self.relation_labels = self._load_relation_labels_from_graph()
         self.entity_labels = self._load_entity_labels_from_graph()
+        self.entity_descriptions = self._load_entity_descriptions_from_graph()
         self.relation_synonyms = self._build_relation_synonyms()
 
     def _load_relation_labels_from_graph(self) -> dict[rdflib.URIRef, str]:
@@ -72,7 +73,7 @@ class QueryHandler:
             }}
             """
             self.data_handler.graph.setQuery(query)
-            results = self.data_handler.graph.query().convert()
+            results = self.data_handler.graph.queryAndConvert()
 
             for result in results["results"]["bindings"]:
                 relation_uri = rdflib.URIRef(result["relation"]["value"])
@@ -102,7 +103,7 @@ class QueryHandler:
             }}
             """
             self.data_handler.graph.setQuery(query)
-            results = self.data_handler.graph.query().convert()
+            results = self.data_handler.graph.queryAndConvert()
 
             for result in results["results"]["bindings"]:
                 entity_uri = rdflib.URIRef(result["entity"]["value"])
@@ -114,6 +115,36 @@ class QueryHandler:
 
         print(f"Found {len(labels)} entity labels in the graph.")
         return labels
+
+    def _load_entity_descriptions_from_graph(self) -> dict[rdflib.URIRef, str]:
+        if not self.data_handler.graph:
+            print("Warning: Graph not loaded. Cannot extract entity descriptions.")
+            return {}
+
+        print("Loading and filtering entity descriptions directly from the graph...")
+        descriptions = {}
+
+        try:
+            query = f"""
+            SELECT ?entity ?description
+            WHERE {{
+                ?entity <http://schema.org/description> ?description .
+                FILTER(STRSTARTS(STR(?entity), "{str(WD)}"))
+            }}
+            """
+            self.data_handler.graph.setQuery(query)
+            results = self.data_handler.graph.queryAndConvert()
+
+            for result in results["results"]["bindings"]:
+                entity_uri = rdflib.URIRef(result["entity"]["value"])
+                description = str(result["description"]["value"])
+                descriptions[entity_uri] = description
+
+        except Exception as e:
+            print(f"Error loading entity descriptions: {e}")
+
+        print(f"Found {len(descriptions)} entity descriptions in the graph.")
+        return descriptions
 
     def _build_relation_synonyms(self) -> dict[rdflib.URIRef, list[str]]:
         synonym_map = {}
@@ -150,7 +181,7 @@ class QueryHandler:
 
     def find_entities_in_query(
         self, query: str
-    ) -> list[tuple[rdflib.URIRef, int, str]]:
+    ) -> list[tuple[rdflib.URIRef, int, str, str]]:
         if not self.entity_labels:
             print("Error: Entity labels are not loaded. Cannot find entities.")
             return []
@@ -166,13 +197,27 @@ class QueryHandler:
 
             if entity_label_lower in query_lower:
                 score = 100 + len(entity_label_lower)
-                matches.append((entity_uri, score, entity_label))
+                matches.append(
+                    (
+                        entity_uri,
+                        score,
+                        entity_label,
+                        self.entity_descriptions.get(entity_uri, ""),
+                    )
+                )
             else:
                 score = fuzz.partial_ratio(entity_label_lower, query_lower)
 
                 if score > self.fuzzy_threshold:
                     adjusted_score = score + (len(entity_label_lower) * 0.5)
-                    matches.append((entity_uri, int(adjusted_score), entity_label))
+                    matches.append(
+                        (
+                            entity_uri,
+                            int(adjusted_score),
+                            entity_label,
+                            self.entity_descriptions.get(entity_uri, ""),
+                        )
+                    )
 
         matches.sort(key=lambda x: (x[1], len(x[2])), reverse=True)
         return matches
