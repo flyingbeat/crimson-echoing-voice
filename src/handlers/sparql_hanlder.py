@@ -9,6 +9,21 @@ class SparqlHandler:
         self.graph = graph
         self.query_timeout_seconds = query_timeout_seconds
 
+    def get_instance_of(self, entity_id: str) -> str:
+        query = f"""
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX schema: <http://schema.org/>
+
+            SELECT (STR(?obj) AS ?result) WHERE {{
+                <{entity_id}> <http://www.wikidata.org/prop/direct/P31> ?obj .
+            }}
+        """
+        results = self._execute_sparql_query(query)
+        if results:
+            return results[0]
+        else:
+            return ""
+
     def run_sparql_for_prompt(
         self, entity_id: str, relation_id: str
     ) -> tuple[Optional[list[str]], Optional[list[str]]]:
