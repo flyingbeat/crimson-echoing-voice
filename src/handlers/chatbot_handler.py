@@ -165,7 +165,19 @@ class ChatbotHandler:
             if context:
 
                 room.post_messages("🤖 Generating response with LLM...")
-                llm_response = self.llm_handler.prompt(message, context=context)
+                query_prefixes = [
+                    "Please answer this question with an embedding approach:",
+                    "Please answer this question with a factual approach:",
+                    "Please answer this question:"
+                ]
+
+                question = message
+                for query_prefix in query_prefixes:
+                    if query_prefix in message:
+                        question = message.split(query_prefix, 1)[1].strip()
+                        break
+
+                llm_response = self.llm_handler.prompt(question, context=context)
 
                 room.post_messages(llm_response)
 
