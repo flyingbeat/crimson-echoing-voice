@@ -1,28 +1,41 @@
-# SPARQL Query Chatbot - 1st Intermediate Evaluation
+# SPARQL Query Chatbot - 2nd Intermediate Evaluation
 
 ## Overview
 
-A conversational agent that executes SPARQL queries against a knowledge graph and returns formatted answers.
+A conversational agent that interprets natural language questions, transforms them into SPARQL queries, and executes them against a knowledge graph to return formatted answers. Supports both factual queries and embedding-based answers and a combination of both leveraging a local llm to provide the best answer.
 
 ## Objective
 
 Demonstrate the chatbot can:
 
 - Interface with Speakeasy infrastructure
-- Parse and execute SPARQL queries
-- Return properly formatted results
+- Interpret natural language questions
+- Transform questions into SPARQL queries
+- Execute queries and return properly formatted results
+- Handle both factual and embedding-based questions
 
 ## Project Structure
 
 ```
 .
-├── venv/                  # Virtual environment
-├── .env                   # Environment variables
+├── .venv/                 # Virtual environment
+├── services/             # services like sparql endpoint server
+├── src/                  # source code for the agent
+    ├── agent_v2.py       # Main agent implementation
+├── .env                  # Environment variables
 ├── .gitignore            # Git ignore file
-├── agent_v1.py           # Main agent implementation
 ├── README.md             # This file
 └── requirements.txt      # Python dependencies
 ```
+
+## Setup
+
+### Prerequisites
+
+To run fuseki server you need
+
+- python3
+- java (for nuvolos: `conda install -c conda-forge openjdk=21`)
 
 ### .env file template
 
@@ -31,75 +44,54 @@ SPEAKEASY_USERNAME=
 SPEAKEASY_PASSWORD=
 ```
 
-## Setup
+### Starting the Agent
 
 ```bash
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# start agent
-python agent_v1.py
+# Install external dependencies
+./scripts/download_dependencies.sh
+
+# Create TDB2 database (only done once or when graph changes)
+export JENA_HOME="./services/apache-jena-5.6.0" # path to apache jena
+./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database /space_mounts/atai-hs25/dataset/graph.nt # local path to graph
+
+# start fuseki-server and llama-server
+./scripts/start_services.sh
+
+# in a different terminal start the agent
+python src/agent_v2.py
 ```
 
-## Example Queries
+This will start a local sparql endpoint available at [http://localhost:3030/atai/sparql](http://localhost:3030/atai/sparql) which is used by the agent to retrieve data from the knowledge graph. Additionally a local openai compatible llm server will be accessible at [http://localhost:8080]
 
-**Highest rated movie:**
+## Query Types
 
-```sparql
-SELECT ?movieLabel ?movieItem WHERE {
-    ?movieItem wdt:P31 wd:Q11424 .
-    ?movieItem ddis:rating ?rating .
-    ?movieItem rdfs:label ?movieLabel .
-}
-ORDER BY DESC(?rating) LIMIT 1
-```
+### 1. Factual Answers
 
-Response: `Acidulous Midtime Shed (Q10850238456619979)`
+Questions answered directly from the knowledge graph using SPARQL queries.
 
-**Movie director:**
+**Example:** "Who is the director of Star Wars: Episode VI - Return of the Jedi?"
 
-```sparql
-SELECT ?directorLabel ?directorItem WHERE {
-    ?movieItem rdfs:label "The Bridge on the River Kwai" .
-    ?movieItem wdt:P57 ?directorItem .
-    ?directorItem rdfs:label ?directorLabel .
-}
-```
+**Response:** "Factual response: Richard Marquand."
 
-Response: `David Lean (Q55260)`
+### 2. Embedding Answers
 
-**Multiple results (producers):**
+Questions answered using embedding-based similarity computation.
 
-```sparql
-SELECT ?producerLabel ?producerItem WHERE {
-    ?movieItem rdfs:label "French Kiss" .
-    ?movieItem wdt:P162 ?producerItem .
-    ?producerItem rdfs:label ?producerLabel .
-}
-```
+**Example:** "Who is the screenwriter of The Masked Gang: Cyprus?"
 
-Response:
+**Response:** "The answer suggested by embeddings: Cengiz Küçükayvaz."
 
-```
-Tim Bevan (Q1473065)
-Meg Ryan (Q167498)
-Eric Fellner (Q1351291)
-```
+### 3. Final Answer
 
-## Evaluation Criteria
+Some questions may be answered using both methods.
 
-- ✓ Correct query execution
-- ✓ Speakeasy integration
-- ✓ Proper result formatting
-- ✓ Handle various query types
+**Question:** "When was 'The Godfather' released?"
 
-## Dependencies
-
-See `requirements.txt`:
-
-- `rdflib` - RDF/SPARQL processing
-- Additional packages for Speakeasy integration
+**Response:** "It was released in 1972."

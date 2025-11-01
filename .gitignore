@@ -32,6 +32,13 @@ MANIFEST
 *.manifest
 *.spec
 
+# LLM models
+models/
+# external services (e.g binaries)
+services/
+run/
+
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
