@@ -54,8 +54,10 @@ class ChatbotHandler:
             return
 
         entities = self.query_handler.find_entities_in_query(message)
-        res = self.query_handler.find_relations_in_query(message)
-        room.post_messages(res)
+        res = self.sparql_handler.get_similar_entities(
+            entity_ids=[str(ent[0]) for ent in entities]
+        )
+        # room.post_messages(res)
         return
         relations = self.query_handler.find_relations_in_query(message)
 

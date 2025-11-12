@@ -8,6 +8,16 @@ class SparqlHandler:
     def __init__(self, graph: SPARQLWrapper, query_timeout_seconds: int):
         self.graph = graph
         self.query_timeout_seconds = query_timeout_seconds
+        self.relation_whitelist = [
+            "wdt:P31",  # instance of
+            "wdt:P57",  # director
+            "wdt:P162",  # producer
+            "wdt:P272",  # production company
+            "wdt:P58",  # screenwriter
+            "wdt:P166",  # award received
+            "wdt:P577",  # release date
+            "wdt:P136",  # genre
+        ]
 
     def get_instance_of(self, entity_id: str) -> str:
         query = f"""
