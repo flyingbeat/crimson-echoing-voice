@@ -209,8 +209,12 @@ class QueryHandler:
         return matches
 
     def find_entities_in_query(
-        self, query: str, max_ngram_length: int = 6
+            self, query: str, max_ngram_length: int = 6, score_threshold: int = 90
     ) -> list[tuple[rdflib.URIRef, int, str, str]]:
+        """
+        An improved method to find movie entities in a query using a two-stage
+        candidate generation and filtering approach.
+        """
         if not self.entity_labels:
             print("Error: Entity labels are not loaded. Cannot find entities.")
             return []
@@ -220,51 +224,111 @@ class QueryHandler:
         label_to_uri = {label.lower(): uri for uri, label in entity_labels_list}
         all_labels = [label for _, label in entity_labels_list]
 
-        matches = []
-
-        # Generate n-grams up to max_ngram_length words
+        # Stage 1: Candidate Generation
+        candidates = []
         for i in range(len(words)):
             for j in range(i + 1, min(i + max_ngram_length + 1, len(words) + 1)):
                 span = " ".join(words[i:j])
 
-                # Find best matching entity label for this span
-                result = process.extractOne(
-                    span, all_labels, scorer=fuzz.token_sort_ratio
-                )
+                # Find the best match for this span in our list of movie titles
+                best_match = process.extractOne(span, all_labels, scorer=fuzz.token_set_ratio)
 
-                if result:
-                    match_label, score = result[0], result[1]
+                if best_match and best_match[1] > score_threshold:
+                    matched_label, score = best_match
+                    entity_uri = label_to_uri.get(matched_label.lower())
+                    if entity_uri:
+                        candidates.append({
+                            "span": span,
+                            "start": i,
+                            "end": j,
+                            "entity_uri": entity_uri,
+                            "matched_label": matched_label,
+                            "score": score
+                        })
 
-                    if score > self.fuzzy_threshold:
-                        entity_uri = label_to_uri.get(match_label.lower())
-                        if entity_uri:
-                            matches.append((
-                                span,
-                                entity_uri,
-                                match_label,
-                                score,
-                                i,
-                                j
-                            ))
+        # Stage 2: Filtering and Disambiguation (Resolving Overlaps)
+        # Sort candidates by score (descending), and then by the length of the matched label (descending)
+        # This prioritizes better matches and longer, more specific movie titles.
+        candidates.sort(key=lambda x: (x["score"], len(x["matched_label"])), reverse=True)
 
-        # Sort by score (descending) and filter overlapping spans
-        matches.sort(key=lambda x: -x[3])
+        selected_entities = []
+        used_indices = set()
 
-        selected = []
-        used_positions = set()
-
-        for span, entity_uri, match_label, score, start, end in matches:
-            # Check if any position in this span is already used
-            if not any(pos in used_positions for pos in range(start, end)):
-                selected.append((
-                    entity_uri,
-                    score,
-                    match_label,
-                    self.entity_descriptions.get(entity_uri, "")
+        for candidate in candidates:
+            # Check if the character indices of this candidate overlap with an already selected entity
+            current_indices = set(range(candidate["start"], candidate["end"]))
+            if not current_indices.intersection(used_indices):
+                selected_entities.append((
+                    candidate["entity_uri"],
+                    candidate["score"],
+                    candidate["matched_label"],
+                    self.entity_descriptions.get(candidate["entity_uri"], "")
                 ))
-                used_positions.update(range(start, end))
+                # Add the indices of the selected entity's span to the set of used indices
+                used_indices.update(current_indices)
 
-        # Sort final results by score (descending)
-        selected.sort(key=lambda x: x[1], reverse=True)
+        # Sort the final list by the order of appearance in the query
+        selected_entities.sort(key=lambda x: words.index(x[2].split()[0]) if x[2].split()[0] in words else float('inf'))
 
-        return selected
+        return selected_entities
+
+    # def find_entities_in_query(
+    #     self, query: str, max_ngram_length: int = 6
+    # ) -> list[tuple[rdflib.URIRef, int, str, str]]:
+    #     if not self.entity_labels:
+    #         print("Error: Entity labels are not loaded. Cannot find entities.")
+    #         return []
+    #
+    #     words = query.split()
+    #     entity_labels_list = list(self.entity_labels.items())
+    #     label_to_uri = {label.lower(): uri for uri, label in entity_labels_list}
+    #     all_labels = [label for _, label in entity_labels_list]
+    #
+    #     matches = []
+    #
+    #     # Generate n-grams up to max_ngram_length words
+    #     for i in range(len(words)):
+    #         for j in range(i + 1, min(i + max_ngram_length + 1, len(words) + 1)):
+    #             span = " ".join(words[i:j])
+    #
+    #             # Find best matching entity label for this span
+    #             result = process.extractOne(
+    #                 span, all_labels, scorer=fuzz.token_sort_ratio
+    #             )
+    #
+    #             if result:
+    #                 match_label, score = result[0], result[1]
+    #
+    #                 if score > self.fuzzy_threshold:
+    #                     entity_uri = label_to_uri.get(match_label.lower())
+    #                     if entity_uri:
+    #                         matches.append((
+    #                             span,
+    #                             entity_uri,
+    #                             match_label,
+    #                             score,
+    #                             i,
+    #                             j
+    #                         ))
+    #
+    #     # Sort by score (descending) and filter overlapping spans
+    #     matches.sort(key=lambda x: -x[3])
+    #
+    #     selected = []
+    #     used_positions = set()
+    #
+    #     for span, entity_uri, match_label, score, start, end in matches:
+    #         # Check if any position in this span is already used
+    #         if not any(pos in used_positions for pos in range(start, end)):
+    #             selected.append((
+    #                 entity_uri,
+    #                 score,
+    #                 match_label,
+    #                 self.entity_descriptions.get(entity_uri, "")
+    #             ))
+    #             used_positions.update(range(start, end))
+    #
+    #     # Sort final results by score (descending)
+    #     selected.sort(key=lambda x: x[1], reverse=True)
+    #
+    #     return selected
