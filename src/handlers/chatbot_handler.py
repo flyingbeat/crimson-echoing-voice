@@ -54,6 +54,8 @@ class ChatbotHandler:
             return
 
         entities = self.query_handler.find_entities_in_query(message)
+        room.post_messages(entities)
+        return
         relations = self.query_handler.find_relations_in_query(message)
 
         entity = entities[0] if entities else None
