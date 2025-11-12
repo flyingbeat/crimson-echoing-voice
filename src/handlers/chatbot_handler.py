@@ -54,7 +54,8 @@ class ChatbotHandler:
             return
 
         entities = self.query_handler.find_entities_in_query(message)
-        room.post_messages(entities)
+        res = self.query_handler.find_relations_in_query(message)
+        room.post_messages(res)
         return
         relations = self.query_handler.find_relations_in_query(message)
 
@@ -170,7 +171,7 @@ class ChatbotHandler:
                 query_prefixes = [
                     "Please answer this question with an embedding approach:",
                     "Please answer this question with a factual approach:",
-                    "Please answer this question:"
+                    "Please answer this question:",
                 ]
 
                 question = message
