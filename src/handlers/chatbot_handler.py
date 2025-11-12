@@ -54,8 +54,19 @@ class ChatbotHandler:
             return
 
         entities = self.query_handler.find_entities_in_query(message)
-        res = self.sparql_handler.get_similar_entities(
-            entity_ids=[str(ent[0]) for ent in entities]
+        relation_whitelist = [
+            "P31",  # instance of
+            "P57",  # director
+            "P162",  # producer
+            "P272",  # production company
+            "P58",  # screenwriter
+            "P166",  # award received
+            "P577",  # release date
+            "P136",  # genre
+        ]
+        res = self.sparql_handler.get_properties_for_entities(
+            entity_ids=[str(ent[0]) for ent in entities],
+            relation_ids=relation_whitelist
         )
         # room.post_messages(res)
         return

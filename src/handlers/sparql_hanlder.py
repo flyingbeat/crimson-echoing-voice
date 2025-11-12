@@ -1,5 +1,6 @@
 import signal
 from typing import Optional
+from collections import Counter
 
 from SPARQLWrapper import SPARQLWrapper
 
@@ -99,12 +100,14 @@ class SparqlHandler:
             f"Query execution timed out after {self.query_timeout_seconds} seconds."
         )
 
-    def get_similar_entities(self, entity_ids: list[str]) -> list[str]:
-        similar_entities = []
+    def get_properties_for_entities(self, entity_ids: list[str], relation_ids: list[str]) -> dict[str, dict[str, int]]:
+        relation_property_count = {}
         if not entity_ids:
             return []
-        for entity_id in entity_ids:
-            for relation_id in self.relation_whitelist:
+
+        for relation_id in relation_ids:
+            relation_properties = []
+            for entity_id in entity_ids:
                 object_query = f"""
                     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                     PREFIX schema: <http://schema.org/>
@@ -119,12 +122,14 @@ class SparqlHandler:
                         }}
                     }}
                 """
-                results = self._execute_sparql_query(object_query)
-                if results:
-                    similar_entities.append(results)
+                entity_properties = self._execute_sparql_query(object_query)
+                if entity_properties:
+                    relation_properties.extend(entity_properties)
+            if relation_properties:
+                relation_property_count[relation_id] = Counter(relation_properties)
 
-        print(similar_entities)
-        return similar_entities
+        print(relation_property_count)
+        return relation_property_count
 
 
 class TimeoutException(Exception):
