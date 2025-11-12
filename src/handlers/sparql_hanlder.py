@@ -9,14 +9,14 @@ class SparqlHandler:
         self.graph = graph
         self.query_timeout_seconds = query_timeout_seconds
         self.relation_whitelist = [
-            "wdt:P31",  # instance of
-            "wdt:P57",  # director
-            "wdt:P162",  # producer
-            "wdt:P272",  # production company
-            "wdt:P58",  # screenwriter
-            "wdt:P166",  # award received
-            "wdt:P577",  # release date
-            "wdt:P136",  # genre
+            "P31",  # instance of
+            "P57",  # director
+            "P162",  # producer
+            "P272",  # production company
+            "P58",  # screenwriter
+            "P166",  # award received
+            "P577",  # release date
+            "P136",  # genre
         ]
 
     def get_instance_of(self, entity_id: str) -> str:
@@ -108,11 +108,9 @@ class SparqlHandler:
                 object_query = f"""
                     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                     PREFIX schema: <http://schema.org/>
-                    PREFIX wd: <http://www.wikidata.org/entity/>
-                    REFIX wdt: <http://www.wikidata.org/prop/direct/>
 
                     SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) (COALESCE(?objDesc, "") AS ?description) {{
-                        <{entity_id}> <{relation_id}> ?obj .
+                        <{entity_id}> <http://www.wikidata.org/prop/direct/{relation_id}> ?obj .
                         OPTIONAL {{
                             ?obj rdfs:label ?objLabel .
                         }}
