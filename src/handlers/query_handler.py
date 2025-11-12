@@ -91,13 +91,14 @@ class QueryHandler:
             print("Warning: Graph not loaded. Cannot extract entity labels.")
             return {}
 
-        print("Loading and filtering entity labels directly from the graph...")
+        print("Loading and filtering entity labels for movies only from the graph...")
         labels = {}
 
         try:
             query = f"""
             SELECT ?entity ?label
             WHERE {{
+                ?entity <http://www.wikidata.org/prop/direct/P31> <http://www.wikidata.org/entity/Q11424> .
                 ?entity <http://www.w3.org/2000/01/rdf-schema#label> ?label .
                 FILTER(STRSTARTS(STR(?entity), "{str(WD)}"))
             }}
@@ -113,7 +114,7 @@ class QueryHandler:
         except Exception as e:
             print(f"Error loading entity labels: {e}")
 
-        print(f"Found {len(labels)} entity labels in the graph.")
+        print(f"Found {len(labels)} movie entity labels in the graph.")
         return labels
 
     def _load_entity_descriptions_from_graph(self) -> dict[rdflib.URIRef, str]:
