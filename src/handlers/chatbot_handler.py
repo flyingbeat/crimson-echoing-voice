@@ -60,6 +60,7 @@ class ChatbotHandler:
         res = self.recommendation_handler.get_recommendations(
             entity_ids=[str(ent[0]) for ent in entities]
         )
+        movie_titles = [self.data_handler.ent2lbl(ent_id) for ent_id in res]
         # room.post_messages(res)
         return
         relations = self.message_handler.find_relations_in_query(message)

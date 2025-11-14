@@ -13,8 +13,6 @@ class RecommendationHandler:
             entity_ids=entity_ids
         )
 
-        print("found properties: ", common_properties)
-
         # Then, get movies that have these common properties
         movies_with_properties = (
             self.sparql_handler.get_entities_with_common_properties(common_properties)
@@ -28,8 +26,6 @@ class RecommendationHandler:
 
         # Count how many times each movie was recommended
         movie_counts = Counter(all_recommended_movies)
-
-        print("found movies: ", movie_counts.most_common()[0:10])
 
         # Remove the movies that were originally given as input
         for entity_id in entity_ids:
