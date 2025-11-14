@@ -6,8 +6,8 @@ from handlers.chatbot_handler import ChatbotHandler
 from handlers.data_handler import DataHandler
 from handlers.embedding_handler import EmbeddingHandler
 from handlers.llm_handler import LLMHandler
-from handlers.query_handler import QueryHandler
-from handlers.sparql_hanlder import SparqlHandler
+from handlers.message_handler import MessageHandler
+from handlers.sparql_handler import SparqlHandler
 from handlers.recommendation_handler import RecommendationHandler
 
 if __name__ == "__main__":
@@ -31,7 +31,7 @@ if __name__ == "__main__":
         data_handler=data_handler,
         sparql_handler=sparql_handler,
         embedding_handler=EmbeddingHandler(data_handler=data_handler),
-        query_handler=QueryHandler(data_handler=data_handler),
+        query_handler=MessageHandler(data_handler=data_handler),
         llm_handler=LLMHandler(),
         recommendation_handler=RecommendationHandler(sparql_handler=sparql_handler),
     )

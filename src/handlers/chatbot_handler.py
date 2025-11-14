@@ -5,7 +5,7 @@ from speakeasypy import Chatroom, EventType, Speakeasy
 from handlers.data_handler import DataHandler
 from handlers.embedding_handler import EmbeddingHandler
 from handlers.llm_handler import LLMHandler
-from handlers.query_handler import QueryHandler
+from handlers.message_handler import MessageHandler
 from handlers.recommendation_handler import RecommendationHandler
 from handlers.sparql_hanlder import SparqlHandler
 
@@ -18,7 +18,7 @@ class ChatbotHandler:
         data_handler: DataHandler,
         sparql_handler: SparqlHandler,
         embedding_handler: EmbeddingHandler,
-        query_handler: QueryHandler,
+        query_handler: MessageHandler,
         llm_handler: LLMHandler,
         recommendation_handler: RecommendationHandler,
     ):
