@@ -30,12 +30,12 @@ class SparqlHandler:
         """
         results = self._execute_sparql_query(query)
         if results:
-            return results[0]
+            return [res['result'] for res in results]
         else:
             return ""
 
     def run_sparql_for_prompt(
-        self, entity_id: str, relation_id: str
+            self, entity_id: str, relation_id: str
     ) -> tuple[Optional[list[str]], Optional[list[str]]]:
         object_query = f"""
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -67,12 +67,15 @@ class SparqlHandler:
             }}
         """
 
+        subject_results = self._execute_sparql_query(subject_query)
+        object_results = self._execute_sparql_query(object_query)
+
         return (
-            self._execute_sparql_query(subject_query),
-            self._execute_sparql_query(object_query),
+            [res['result'] for res in subject_results] if subject_results else None,
+            [res['result'] for res in object_results] if object_results else None,
         )
 
-    def _execute_sparql_query(self, query: str) -> Optional[list[str]]:
+    def _execute_sparql_query(self, query: str) -> Optional[list[dict[str, str]]]:
         signal.signal(signal.SIGALRM, self._timeout_handler)
         signal.alarm(self.query_timeout_seconds)
 
@@ -82,7 +85,7 @@ class SparqlHandler:
 
             if results["results"]["bindings"]:
                 return [
-                    str(res["result"]["value"])
+                    {key: res[key]["value"] for key in res}
                     for res in results["results"]["bindings"]
                 ]
             return None
@@ -99,40 +102,67 @@ class SparqlHandler:
             f"Query execution timed out after {self.query_timeout_seconds} seconds."
         )
 
-    def get_properties_for_entities(self, entity_ids: list[str], relation_ids: list[str]) -> dict[str, list[tuple[str, int]]]:
+    def get_properties_for_entities(
+            self, entity_ids: list[str]
+    ) -> dict[str, list[tuple[str, int]]]:
         if not entity_ids:
             return {}
 
+        # First, get all unique relations for the given entities
+        all_relations = []
+        for entity_id in entity_ids:
+            query = f"""
+                {SPARQL_PREFIXES}
+                SELECT DISTINCT ?relation WHERE {{
+                  <{entity_id}> ?relation ?value .
+                }}
+            """
+            relations = self._execute_sparql_query(query)
+            if relations:
+                all_relations.extend([res["relation"] for res in relations])
+
+        if not all_relations:
+            return {}
+
+        relation_counts = Counter(all_relations)
+
+        # Filter for relations that are common to more than one of the input movies
+        common_relations = [
+            relation for relation, count in relation_counts.items() if count > 1
+        ]
+
+        # Now, for each common relation, get all the property values
         relation_property_count = {}
-
-        for relation_id in relation_ids:
-            relation_properties = []
-
+        for relation in common_relations:
+            all_properties = []
             for entity_id in entity_ids:
                 query = f"""
                     {SPARQL_PREFIXES}
-                    SELECT (STR(?obj) AS ?result) {{
-                        <{entity_id}> <http://www.wikidata.org/prop/direct/{relation_id}> ?obj .
+                    SELECT DISTINCT (STR(?value) as ?prop) WHERE {{
+                      <{entity_id}> <{relation}> ?value .
                     }}
                 """
-                relation_properties.extend(self._execute_sparql_query(query) or [])
+                properties = self._execute_sparql_query(query)
+                if properties:
+                    all_properties.extend([res["prop"] for res in properties])
 
-            if not relation_properties:
-                continue
-
-            counts = [
-                (prop, count)
-                for prop, count in Counter(relation_properties).most_common()
-                if count > 1
-            ]
-
-            if counts:
-                relation_property_count[relation_id] = counts
+            if all_properties:
+                # Count the occurrences of each property for this relation
+                property_counts = Counter(all_properties)
+                # We are interested in properties that are shared among the input entities
+                shared_properties = [
+                    (prop, count)
+                    for prop, count in property_counts.items()
+                    if count > 1
+                ]
+                if shared_properties:
+                    relation_property_count[relation] = shared_properties
 
         return relation_property_count
 
-    def get_movies_with_properties(self, properties_by_relation: dict[str, list[tuple[str, int]]]) -> dict[
-        str, dict[str, list[str]]]:
+    def get_movies_with_properties(
+            self, properties_by_relation: dict[str, list[tuple[str, int]]]
+    ) -> dict[str, dict[str, list[str]]]:
         movies_by_property = {}
 
         for relation_id, properties in properties_by_relation.items():
@@ -141,11 +171,12 @@ class SparqlHandler:
                 query = f"""
                     {SPARQL_PREFIXES}
                     SELECT (STR(?movie) AS ?result) WHERE {{
-                        ?movie <http://www.wikidata.org/prop/direct/{relation_id}> <{prop}> .
+                        ?movie <{relation_id}> <{prop}> .
                     }}
                 """
-                movies = self._execute_sparql_query(query)
-                if movies:
-                    movies_by_property[relation_id][prop] = movies
+
+                results = self._execute_sparql_query(query)
+                if results:
+                    movies_by_property[relation_id][prop] = [res['result'] for res in results]
 
         return movies_by_property

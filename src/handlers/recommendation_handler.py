@@ -1,31 +1,23 @@
 from handlers.sparql_hanlder import SparqlHandler
 from collections import Counter
 
+
 class RecommendationHandler:
     def __init__(self, sparql_handler: SparqlHandler):
         self.sparql_handler = sparql_handler
-        self.relation_whitelist = [
-            "P31",  # instance of
-            "P57",  # director
-            "P162",  # producer
-            "P272",  # production company
-            "P58",  # screenwriter
-            "P166",  # award received
-            "P577",  # release date
-            "P136",  # genre
-        ]
 
     def get_recommendations(self, entity_ids: list[str]) -> list[str]:
         # First, get the common properties from the given movies
         common_properties = self.sparql_handler.get_properties_for_entities(
-            entity_ids=entity_ids,
-            relation_ids=self.relation_whitelist
+            entity_ids=entity_ids
         )
 
         print("found properties: ", common_properties)
 
         # Then, get movies that have these common properties
-        movies_with_properties = self.sparql_handler.get_movies_with_properties(common_properties)
+        movies_with_properties = self.sparql_handler.get_movies_with_properties(
+            common_properties
+        )
 
         # Now, we flatten the lists of movies to count the occurrences of each movie
         all_recommended_movies = []
@@ -36,7 +28,7 @@ class RecommendationHandler:
         # Count how many times each movie was recommended
         movie_counts = Counter(all_recommended_movies)
 
-        print("found movies: ", movies_with_properties)
+        print("found movies: ", movie_counts.most_common()[0:10])
 
         # Remove the movies that were originally given as input
         for entity_id in entity_ids:
@@ -44,6 +36,8 @@ class RecommendationHandler:
                 del movie_counts[entity_id]
 
         # Sort the movies by the frequency of recommendation
-        sorted_recommendations = [movie for movie, count in movie_counts.most_common()]
+        sorted_recommendations = [
+            movie for movie, count in movie_counts.most_common()
+        ]
 
         return sorted_recommendations
