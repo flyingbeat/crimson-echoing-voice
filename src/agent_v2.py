@@ -8,6 +8,7 @@ from handlers.embedding_handler import EmbeddingHandler
 from handlers.llm_handler import LLMHandler
 from handlers.query_handler import QueryHandler
 from handlers.sparql_hanlder import SparqlHandler
+from handlers.recommendation_handler import RecommendationHandler
 
 if __name__ == "__main__":
     load_dotenv()
@@ -23,16 +24,15 @@ if __name__ == "__main__":
     sparql_handler = SparqlHandler(
         graph=data_handler.graph, query_timeout_seconds=QUERY_TIMEOUT_SECONDS
     )
-    embedding_handler = EmbeddingHandler(data_handler=data_handler)
-    query_handler = QueryHandler(data_handler=data_handler)
 
     chatbot = ChatbotHandler(
         username=os.getenv("SPEAKEASY_USERNAME", ""),
         password=os.getenv("SPEAKEASY_PASSWORD", ""),
         data_handler=data_handler,
         sparql_handler=sparql_handler,
-        embedding_handler=embedding_handler,
-        query_handler=query_handler,
+        embedding_handler=EmbeddingHandler(data_handler=data_handler),
+        query_handler=QueryHandler(data_handler=data_handler),
         llm_handler=LLMHandler(),
+        recommendation_handler=RecommendationHandler(sparql_handler=sparql_handler),
     )
     chatbot.listen()

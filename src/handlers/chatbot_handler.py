@@ -6,6 +6,7 @@ from handlers.data_handler import DataHandler
 from handlers.embedding_handler import EmbeddingHandler
 from handlers.llm_handler import LLMHandler
 from handlers.query_handler import QueryHandler
+from handlers.recommendation_handler import RecommendationHandler
 from handlers.sparql_hanlder import SparqlHandler
 
 
@@ -19,6 +20,7 @@ class ChatbotHandler:
         embedding_handler: EmbeddingHandler,
         query_handler: QueryHandler,
         llm_handler: LLMHandler,
+        recommendation_handler: RecommendationHandler,
     ):
         self.speakeasy = Speakeasy(
             host="https://speakeasy.ifi.uzh.ch", username=username, password=password
@@ -28,6 +30,7 @@ class ChatbotHandler:
         self.embedding_handler = embedding_handler
         self.query_handler = query_handler
         self.llm_handler = llm_handler
+        self.recommendation_handler = recommendation_handler
 
         self.speakeasy.login()
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
@@ -54,19 +57,8 @@ class ChatbotHandler:
             return
 
         entities = self.query_handler.find_entities_in_query(message)
-        relation_whitelist = [
-            "P31",  # instance of
-            "P57",  # director
-            "P162",  # producer
-            "P272",  # production company
-            "P58",  # screenwriter
-            "P166",  # award received
-            "P577",  # release date
-            "P136",  # genre
-        ]
-        res = self.sparql_handler.get_properties_for_entities(
-            entity_ids=[str(ent[0]) for ent in entities],
-            relation_ids=relation_whitelist
+        res = self.recommendation_handler.get_recommendations(
+            entity_ids=[str(ent[0]) for ent in entities]
         )
         # room.post_messages(res)
         return

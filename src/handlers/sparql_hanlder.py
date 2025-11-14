@@ -1,24 +1,23 @@
 import signal
-from typing import Optional
 from collections import Counter
+from typing import Optional
 
 from SPARQLWrapper import SPARQLWrapper
+
+SPARQL_PREFIXES = """
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX schema: <http://schema.org/>
+        """
+
+
+class TimeoutException(Exception):
+    pass
 
 
 class SparqlHandler:
     def __init__(self, graph: SPARQLWrapper, query_timeout_seconds: int):
         self.graph = graph
         self.query_timeout_seconds = query_timeout_seconds
-        self.relation_whitelist = [
-            "P31",  # instance of
-            "P57",  # director
-            "P162",  # producer
-            "P272",  # production company
-            "P58",  # screenwriter
-            "P166",  # award received
-            "P577",  # release date
-            "P136",  # genre
-        ]
 
     def get_instance_of(self, entity_id: str) -> str:
         query = f"""
@@ -100,37 +99,53 @@ class SparqlHandler:
             f"Query execution timed out after {self.query_timeout_seconds} seconds."
         )
 
-    def get_properties_for_entities(self, entity_ids: list[str], relation_ids: list[str]) -> dict[str, dict[str, int]]:
-        relation_property_count = {}
+    def get_properties_for_entities(self, entity_ids: list[str], relation_ids: list[str]) -> dict[str, list[tuple[str, int]]]:
         if not entity_ids:
-            return []
+            return {}
+
+        relation_property_count = {}
 
         for relation_id in relation_ids:
             relation_properties = []
-            for entity_id in entity_ids:
-                object_query = f"""
-                    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-                    PREFIX schema: <http://schema.org/>
 
-                    SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) (COALESCE(?objDesc, "") AS ?description) {{
+            for entity_id in entity_ids:
+                query = f"""
+                    {SPARQL_PREFIXES}
+                    SELECT (STR(?obj) AS ?result) {{
                         <{entity_id}> <http://www.wikidata.org/prop/direct/{relation_id}> ?obj .
-                        OPTIONAL {{
-                            ?obj rdfs:label ?objLabel .
-                        }}
-                        OPTIONAL {{
-                            ?obj schema:description ?objDesc .
-                        }}
                     }}
                 """
-                entity_properties = self._execute_sparql_query(object_query)
-                if entity_properties:
-                    relation_properties.extend(entity_properties)
-            if relation_properties:
-                relation_property_count[relation_id] = Counter(relation_properties)
+                relation_properties.extend(self._execute_sparql_query(query) or [])
 
-        print(relation_property_count)
+            if not relation_properties:
+                continue
+
+            counts = [
+                (prop, count)
+                for prop, count in Counter(relation_properties).most_common()
+                if count > 1
+            ]
+
+            if counts:
+                relation_property_count[relation_id] = counts
+
         return relation_property_count
 
+    def get_movies_with_properties(self, properties_by_relation: dict[str, list[tuple[str, int]]]) -> dict[
+        str, dict[str, list[str]]]:
+        movies_by_property = {}
 
-class TimeoutException(Exception):
-    pass
+        for relation_id, properties in properties_by_relation.items():
+            movies_by_property[relation_id] = {}
+            for prop, count in properties:
+                query = f"""
+                    {SPARQL_PREFIXES}
+                    SELECT (STR(?movie) AS ?result) WHERE {{
+                        ?movie <http://www.wikidata.org/prop/direct/{relation_id}> <{prop}> .
+                    }}
+                """
+                movies = self._execute_sparql_query(query)
+                if movies:
+                    movies_by_property[relation_id][prop] = movies
+
+        return movies_by_property
