@@ -1,5 +1,6 @@
-from handlers.sparql_hanlder import SparqlHandler
 from collections import Counter
+
+from handlers.sparql_handler import SparqlHandler
 
 
 class RecommendationHandler:
@@ -8,15 +9,15 @@ class RecommendationHandler:
 
     def get_recommendations(self, entity_ids: list[str]) -> list[str]:
         # First, get the common properties from the given movies
-        common_properties = self.sparql_handler.get_properties_for_entities(
+        common_properties = self.sparql_handler.count_common_properties_for_entities(
             entity_ids=entity_ids
         )
 
         print("found properties: ", common_properties)
 
         # Then, get movies that have these common properties
-        movies_with_properties = self.sparql_handler.get_entities_with_properties(
-            common_properties
+        movies_with_properties = (
+            self.sparql_handler.get_entities_with_common_properties(common_properties)
         )
 
         # Now, we flatten the lists of movies to count the occurrences of each movie
@@ -36,8 +37,6 @@ class RecommendationHandler:
                 del movie_counts[entity_id]
 
         # Sort the movies by the frequency of recommendation
-        sorted_recommendations = [
-            movie for movie, count in movie_counts.most_common()
-        ]
+        sorted_recommendations = [movie for movie, count in movie_counts.most_common()]
 
         return sorted_recommendations
