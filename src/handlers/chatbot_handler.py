@@ -7,7 +7,7 @@ from handlers.embedding_handler import EmbeddingHandler
 from handlers.llm_handler import LLMHandler
 from handlers.message_handler import MessageHandler
 from handlers.recommendation_handler import RecommendationHandler
-from handlers.sparql_hanlder import SparqlHandler
+from handlers.sparql_handler import SparqlHandler
 
 
 class ChatbotHandler:

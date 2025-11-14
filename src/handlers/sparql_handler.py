@@ -28,7 +28,7 @@ class SparqlHandler:
         all_relations = []
         for entity_id in entity_ids:
             for relations in self._get_relations_of_entity(entity_id):
-                all_relations.extend(relations)
+                all_relations.append(relations)
 
         if not all_relations:
             return {}
@@ -36,16 +36,17 @@ class SparqlHandler:
         common_relations = self._get_common_values(all_relations)
 
         relation_property_count = {}
-        for relation in common_relations:
-            all_properties = [
-                self._get_property_of_entity(entity_id, relation)
-                for entity_id in entity_ids
-            ]
+        all_properties = []
+        for relation_id, _ in common_relations:
+            for entity_id in entity_ids:
+                all_properties.extend(
+                    self._get_property_of_entity(entity_id, relation_id)
+                )
 
             if all_properties:
                 common_properties = self._get_common_values(all_properties)
                 if common_properties:
-                    relation_property_count[relation] = common_properties
+                    relation_property_count[relation_id] = common_properties
 
         return relation_property_count
 
@@ -99,11 +100,8 @@ class SparqlHandler:
     def _get_property_of_entity(self, entity_id: str, relation_id: str) -> list[str]:
         query = f"""
             {SPARQL_PREFIXES}
-            SELECT (COALESCE(?objLabel, STR(?obj)) AS ?property) WHERE {{
-                <{entity_id}> <{relation_id}> ?obj .
-                OPTIONAL {{
-                    ?obj rdfs:label ?objLabel .
-                }}
+            SELECT ?property WHERE {{
+                <{entity_id}> <{relation_id}> ?property .
             }}
         """
         results = self._execute_sparql_query(query)
@@ -138,7 +136,7 @@ class SparqlHandler:
     ) -> list[str]:
         query = f"""
             {SPARQL_PREFIXES}
-            SELECT STR(?entity) WHERE {{
+            SELECT ?entity WHERE {{
                 ?entity <{relation_id}> <{property_id}> .
             }}
         """
