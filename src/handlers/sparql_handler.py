@@ -38,10 +38,7 @@ class SparqlHandler:
             self, entity_id: str, relation_id: str
     ) -> tuple[Optional[list[str]], Optional[list[str]]]:
         object_query = f"""
-            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX schema: <http://schema.org/>
-
-
+            {SPARQL_PREFIXES}
             SELECT (COALESCE(?objLabel, STR(?obj)) AS ?result) (COALESCE(?objDesc, "") AS ?description) {{
                 <{entity_id}> <{relation_id}> ?obj .
                 OPTIONAL {{
@@ -53,9 +50,7 @@ class SparqlHandler:
             }}
         """
         subject_query = f"""
-            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-            PREFIX schema: <http://schema.org/>
-
+            {SPARQL_PREFIXES}
             SELECT (COALESCE(?subjLabel, STR(?subj)) AS ?result) (COALESCE(?subjDesc, "") AS ?description) WHERE {{
                 ?subj <{relation_id}> <{entity_id}> .
                 OPTIONAL {{
@@ -73,33 +68,6 @@ class SparqlHandler:
         return (
             [res['result'] for res in subject_results] if subject_results else None,
             [res['result'] for res in object_results] if object_results else None,
-        )
-
-    def _execute_sparql_query(self, query: str) -> Optional[list[dict[str, str]]]:
-        signal.signal(signal.SIGALRM, self._timeout_handler)
-        signal.alarm(self.query_timeout_seconds)
-
-        try:
-            self.graph.setQuery(query)
-            results = self.graph.queryAndConvert()
-
-            if results["results"]["bindings"]:
-                return [
-                    {key: res[key]["value"] for key in res}
-                    for res in results["results"]["bindings"]
-                ]
-            return None
-
-        except TimeoutException as e:
-            raise TimeoutException(f"Sorry, the query took too long to execute. {e}")
-        except Exception as e:
-            raise RuntimeError(f"Oops, I ran into an issue processing that query: {e}")
-        finally:
-            signal.alarm(0)
-
-    def _timeout_handler(self, signum, frame):
-        raise TimeoutException(
-            f"Query execution timed out after {self.query_timeout_seconds} seconds."
         )
 
     def get_properties_for_entities(
@@ -160,7 +128,7 @@ class SparqlHandler:
 
         return relation_property_count
 
-    def get_movies_with_properties(
+    def get_entities_with_properties(
             self, properties_by_relation: dict[str, list[tuple[str, int]]]
     ) -> dict[str, dict[str, list[str]]]:
         movies_by_property = {}
@@ -180,3 +148,30 @@ class SparqlHandler:
                     movies_by_property[relation_id][prop] = [res['result'] for res in results]
 
         return movies_by_property
+
+    def _execute_sparql_query(self, query: str) -> Optional[list[dict[str, str]]]:
+        signal.signal(signal.SIGALRM, self._timeout_handler)
+        signal.alarm(self.query_timeout_seconds)
+
+        try:
+            self.graph.setQuery(query)
+            results = self.graph.queryAndConvert()
+
+            if results["results"]["bindings"]:
+                return [
+                    {key: res[key]["value"] for key in res}
+                    for res in results["results"]["bindings"]
+                ]
+            return None
+
+        except TimeoutException as e:
+            raise TimeoutException(f"Sorry, the query took too long to execute. {e}")
+        except Exception as e:
+            raise RuntimeError(f"Oops, I ran into an issue processing that query: {e}")
+        finally:
+            signal.alarm(0)
+
+    def _timeout_handler(self, signum, frame):
+        raise TimeoutException(
+            f"Query execution timed out after {self.query_timeout_seconds} seconds."
+        )

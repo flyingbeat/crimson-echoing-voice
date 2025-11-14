@@ -5,9 +5,9 @@ from speakeasypy import Chatroom, EventType, Speakeasy
 from handlers.data_handler import DataHandler
 from handlers.embedding_handler import EmbeddingHandler
 from handlers.llm_handler import LLMHandler
-from handlers.query_handler import QueryHandler
+from handlers.message_handler import MessageHandler
 from handlers.recommendation_handler import RecommendationHandler
-from handlers.sparql_hanlder import SparqlHandler
+from handlers.sparql_handler import SparqlHandler
 
 
 class ChatbotHandler:
@@ -18,7 +18,7 @@ class ChatbotHandler:
         data_handler: DataHandler,
         sparql_handler: SparqlHandler,
         embedding_handler: EmbeddingHandler,
-        query_handler: QueryHandler,
+        message_handler: MessageHandler,
         llm_handler: LLMHandler,
         recommendation_handler: RecommendationHandler,
     ):
@@ -28,7 +28,7 @@ class ChatbotHandler:
         self.data_handler = data_handler
         self.sparql_handler = sparql_handler
         self.embedding_handler = embedding_handler
-        self.query_handler = query_handler
+        self.message_handler = message_handler
         self.llm_handler = llm_handler
         self.recommendation_handler = recommendation_handler
 
@@ -56,13 +56,13 @@ class ChatbotHandler:
             )
             return
 
-        entities = self.query_handler.find_entities_in_query(message)
+        entities = self.message_handler.find_entities_in_query(message)
         res = self.recommendation_handler.get_recommendations(
             entity_ids=[str(ent[0]) for ent in entities]
         )
         # room.post_messages(res)
         return
-        relations = self.query_handler.find_relations_in_query(message)
+        relations = self.message_handler.find_relations_in_query(message)
 
         entity = entities[0] if entities else None
         relation = relations[0] if relations else None

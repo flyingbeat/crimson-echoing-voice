@@ -21,7 +21,7 @@ Demonstrate the chatbot can:
 ├── .venv/                 # Virtual environment
 ├── services/             # services like sparql endpoint server
 ├── src/                  # source code for the agent
-    ├── agent_v2.py       # Main agent implementation
+    ├── agent.py       # Main agent implementation
 ├── .env                  # Environment variables
 ├── .gitignore            # Git ignore file
 ├── README.md             # This file
@@ -65,7 +65,7 @@ export JENA_HOME="./services/apache-jena-5.6.0" # path to apache jena
 ./scripts/start_services.sh
 
 # in a different terminal start the agent
-python src/agent_v2.py
+python src/agent.py
 ```
 
 This will start a local sparql endpoint available at [http://localhost:3030/atai/sparql](http://localhost:3030/atai/sparql) which is used by the agent to retrieve data from the knowledge graph. Additionally a local openai compatible llm server will be accessible at [http://localhost:8080]

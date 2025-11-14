@@ -49,7 +49,7 @@ EMBEDDING_REL_MAPPING = {
 }
 
 
-class QueryHandler:
+class MessageHandler:
     def __init__(self, data_handler, fuzzy_threshold=70):
         self.data_handler = data_handler
         self.fuzzy_threshold = fuzzy_threshold

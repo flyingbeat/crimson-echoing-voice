@@ -15,7 +15,7 @@ class RecommendationHandler:
         print("found properties: ", common_properties)
 
         # Then, get movies that have these common properties
-        movies_with_properties = self.sparql_handler.get_movies_with_properties(
+        movies_with_properties = self.sparql_handler.get_entities_with_properties(
             common_properties
         )
 
