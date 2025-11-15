@@ -18,6 +18,7 @@ class Entity:
         self.__uri = uri
         self.__label: str | None = label
         self.__knowledge_graph = knowledge_graph
+        self.__properties: dict["Relation", list["Property"]] | None = None
 
     def __repr__(self):
         return str(self.uri)
@@ -36,6 +37,11 @@ class Entity:
 
     @property
     def properties(self) -> dict["Relation", list["Property"]]:
+        if self.__properties is None:
+            self.__properties = self.__get_properties()
+        return self.__properties
+
+    def __get_properties(self) -> dict["Relation", list["Property"]]:
         properties = self.__knowledge_graph.get_properties(self)
         if properties:
             property_dict = defaultdict(list)
@@ -43,6 +49,10 @@ class Entity:
                 property_dict[r].append(p)
             return property_dict
         return {}
+
+    @property
+    def relations(self) -> list["Relation"]:
+        return list(self.properties.keys())
 
     @property
     def label(self) -> str:

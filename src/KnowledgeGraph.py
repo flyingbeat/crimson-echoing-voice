@@ -42,7 +42,9 @@ class KnowledgeGraph:
         return ""
 
     def get_properties(self, entity: Entity) -> list[tuple[Relation, Entity]]:
-        return self.get_triplets(entity=entity, relation=None, property=None)
+        return self.get_triplets(
+            entity=entity, relation=None, property=None, distinct=True
+        )
 
     @property
     def relations(self) -> list[URIRef]:
@@ -88,13 +90,14 @@ class KnowledgeGraph:
         entity: Entity = None,
         relation: Relation = None,
         property: Property = None,
+        distinct: bool = False,
     ) -> list[tuple[Entity, Relation, Property]]:
         entity_value_or_var = f"<{entity}>" if entity else "?entity"
         relation_value_or_var = f"<{relation}>" if relation else "?relation"
         property_value_or_var = f"<{property}>" if property else "?property"
 
         query = f"""
-            SELECT {"?entity" if entity is None else ""} {"?relation" if relation is None else ""} {"?property" if property is None else ""}  WHERE {{
+            SELECT {"DISTINCT" if distinct else ""} {"?entity" if entity is None else ""} {"?relation" if relation is None else ""} {"?property" if property is None else ""}  WHERE {{
                 {entity_value_or_var} {relation_value_or_var} {property_value_or_var} .
             }}
         """
