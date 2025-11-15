@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  crimson-echoing-voice:
+    build: .
+    ports:
+      - "8080:8080" # llama-server port
+      - "3030:3030" # fuseki-server port
+      - "8000:8000" # Python app port (if needed)
+    volumes:
+      # Mount the entire source code for hot reload
+      - .:/app
+      # Mount specific directories to persist data
+      - ./models:/app/models
+      - ./services:/app/services
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    # Override the default command to use tmux for better session management
+    command: >
+      /bin/bash -c "
+      echo 'Starting services in tmux sessions...';
+      tmux new-session -d -s services './scripts/start_services.sh';
+      echo 'Waiting for services to initialize...';
+      sleep 15;
+      echo 'Starting Python application...';
+      while true; do
+        python src/agent_v2.py;
+        echo 'Application stopped. Restarting in 5 seconds...';
+        sleep 5;
+      done
+      "
