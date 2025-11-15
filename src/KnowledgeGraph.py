@@ -26,7 +26,9 @@ class KnowledgeGraph:
         return ""
 
     def get_label(self, uri: URIRef) -> str:
-        triplet = self.get_triplets(Entity(uri, None, self), Relation(RDFS.label, self), None)
+        triplet = self.get_triplets(
+            Entity(uri, None, self), Relation(RDFS.label, self), None
+        )
         if triplet and isinstance(triplet[0][2], str):
             return triplet[0][2]
         return ""
@@ -71,6 +73,7 @@ class KnowledgeGraph:
             SELECT ?uri ?label
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
+                ?uri <http://www.wikidata.org/prop/direct/P31> <http://www.wikidata.org/entity/Q11424> .
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
             }}
         """
