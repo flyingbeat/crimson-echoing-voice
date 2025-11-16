@@ -31,6 +31,12 @@ class Agent:
             "Give me a moment to find something great for you."
         ]
 
+        self.generic_answers = [
+            "Based on your selection, you might also enjoy these movies:",
+            "Here are some similar movies I found for you:",
+            "If you liked those, you should check out these recommendations:"
+        ]
+
     def run(self):
         self.speakeasy.start_listening()
 
@@ -47,15 +53,22 @@ class Agent:
         recommendations = self.get_recommendations(entities_in_message)
 
         if recommendations:
+            entities_in_message_labels = [entity.label for entity in entities_in_message]
             recommendation_labels = [entity.label for entity in recommendations]
 
-            context = f"Given the inputted movies, these are the most similar movies: {', '.join(recommendation_labels)}"
+            initial_response = f"{random.choice(self.generic_answers)}\n- " + "\n- ".join(recommendation_labels)
+            room.post_messages(initial_response)
+
+            prompt = (f"A user likes these movies: {', '.join(entities_in_message_labels)}. "
+                      f"Based on this, I have recommended the following movies: {', '.join(recommendation_labels)}. "
+                      f"Please provide a brief and engaging explanation for why these are good recommendations. "
+                      f"You can highlight shared genres, directors, actors, or themes.")
 
             try:
-                llm_response = self.llm_handler.prompt(content, context=context)
+                llm_response = self.llm_handler.prompt(prompt)
                 room.post_messages(llm_response)
             except Exception as e:
-                room.post_messages(f"⚠️ Oops, something went wrong during the LLM generation: {e}")
+                room.post_messages(f"⚠️ Oops, something went wrong while generating the explanation: {e}")
         else:
             room.post_messages(
                 "I couldn't find any recommendations based on your input. Please try with different movies.")
