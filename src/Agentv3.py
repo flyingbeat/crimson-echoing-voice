@@ -39,41 +39,40 @@ class Agent:
         common_relations = Util.get_common_values(all_relations)
 
         common_properties_per_relation = {}
-        for relation in common_relations:
-            common_properties_per_relation[relation] = Util.get_common_values(
-                [entity.properties.get(relation) for entity in entities]
-            )
+        for relation, _ in common_relations:
+            all_properties_for_relation = []
+            for entity in entities:
+                properties = entity.properties.get(relation)
+                if properties:
+                    all_properties_for_relation.extend(properties)
 
+            if all_properties_for_relation:
+                common_properties = Util.get_common_values(
+                    all_properties_for_relation
+                )
+                if common_properties:
+                    common_properties_per_relation[relation] = common_properties
+
+
+        all_similar_entities = []
         for (
             common_relation,
             common_properties,
         ) in common_properties_per_relation.items():
-            entities_with_properties: dict[str, dict[str, list[Entity]]] = defaultdict(
-                lambda: defaultdict(list)
-            )
             for common_property, _ in common_properties:
                 entities_with_property = self.__knowledge_graph.get_triplets(
-                    None, common_relation[0], common_property
+                    None, common_relation, common_property
                 )
+
                 if entities_with_property:
-                    entities_with_properties[common_relation][common_property].extend(
-                        [e for e, _, _ in entities_with_property]
-                    )
+                    all_similar_entities.extend([e for e, _, _ in entities_with_property])
 
-        all_similar_entities = []
-        for relation in entities_with_properties.values():
-            for entity_list in relation.values():
-                all_similar_entities.extend(entity_list)
-
-        # Count how many times each movie was recommended
         movie_counts = Counter(all_similar_entities)
 
-        # Remove the movies that were originally given as input
-        for entity in entities:
-            if entity in movie_counts:
-                del movie_counts[entity]
-
-        # Sort the movies by the frequency of recommendation
-        sorted_recommendations = [movie for movie, _ in movie_counts.most_common(5)]
-
+        input_entity_uris = {entity.uri for entity in entities}
+        sorted_recommendations = [
+            movie
+            for movie, _ in movie_counts.most_common(10)
+            if str(movie.uri) not in input_entity_uris
+        ]
         return sorted_recommendations
