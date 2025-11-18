@@ -47,22 +47,20 @@ class Agent:
         entities_in_message = message.entities
 
         if len(entities_in_message) <= 1:
-            room.post_messages("Please provide me with a few more movies so I can give you a good recommendation.")
-            return
-
-        recommendations = self.get_recommendations(entities_in_message)
+            recommendations = self.get_recommendations_by_property(message)
+        else:
+            recommendations = self.get_recommendations(entities_in_message)
 
         if recommendations:
-            entities_in_message_labels = [entity.label for entity in entities_in_message]
             recommendation_labels = [entity.label for entity in recommendations]
 
             initial_response = f"{random.choice(self.generic_answers)}\n- " + "\n- ".join(recommendation_labels)
             room.post_messages(initial_response)
 
-            prompt = (f"A user likes these movies: {', '.join(entities_in_message_labels)}. "
-                      f"Based on this, I have recommended the following movies: {', '.join(recommendation_labels)}. "
+            prompt = (f"A user has requested movies with certain properties, and based on this, "
+                      f"I have recommended the following movies: {', '.join(recommendation_labels)}. "
                       f"Please provide a brief and engaging explanation for why these are good recommendations. "
-                      f"You can highlight shared genres, directors, actors, or themes.")
+                      f"You can highlight shared genres, directors, actors, or themes that match the user's request.")
 
             try:
                 llm_response = self.llm_handler.prompt(prompt)
@@ -71,7 +69,31 @@ class Agent:
                 room.post_messages(f"⚠️ Oops, something went wrong while generating the explanation: {e}")
         else:
             room.post_messages(
-                "I couldn't find any recommendations based on your input. Please try with different movies.")
+                "I couldn't find any recommendations based on your input. Please try with different movies or properties.")
+
+    def get_recommendations_by_property(self, message: Message) -> list[Entity]:
+        all_movies = self.__knowledge_graph.entities
+        recommended_movies = []
+        message_content_lower = message.content.lower()
+
+        for movie in all_movies:
+            for relation, properties in movie.properties.items():
+                for prop in properties:
+                    prop_label = ""
+                    if isinstance(prop, Entity):
+                        prop_label = prop.label.lower()
+                    elif isinstance(prop, str):
+                        prop_label = prop.lower()
+
+                    if prop_label and prop_label in message_content_lower:
+                        recommended_movies.append(movie)
+                        if len(recommended_movies) >= 4:
+                            return recommended_movies
+                        break
+                else:
+                    continue
+                break
+        return recommended_movies
 
     def get_recommendations(self, entities: list[Entity]) -> list[Entity]:
         all_relations = [

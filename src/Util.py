@@ -6,7 +6,7 @@ T = TypeVar("T")
 class Util:
 
     @staticmethod
-    def get_common_values(values: list[T], min_count: int = 2) -> list[tuple[T, int]]:
+    def get_common_values(values: list[T], min_count: int = 1) -> list[tuple[T, int]]:
         value_counts = Counter(values)
         return [
             (value, count)
