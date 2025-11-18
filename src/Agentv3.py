@@ -33,8 +33,8 @@ class Agent:
 
         self.generic_answers = [
             "Based on your input, you might enjoy these movies:",
-            "Here are some  movies I found for you:",
-            "If you liked that, you should check out these recommendations:"
+            "Here are some movies I found for you:",
+            "Based on your request, you should check out these recommendations:"
         ]
 
     def run(self):
@@ -73,8 +73,9 @@ class Agent:
 
     def get_recommendations_by_property(self, message: Message) -> list[Entity]:
         all_movies = self.__knowledge_graph.entities
-        recommended_movies = []
         message_content_lower = message.content.lower()
+
+        movie_scores = defaultdict(int)
 
         for movie in all_movies:
             for relation, properties in movie.properties.items():
@@ -86,14 +87,12 @@ class Agent:
                         prop_label = prop.lower()
 
                     if prop_label and prop_label in message_content_lower:
-                        recommended_movies.append(movie)
-                        if len(recommended_movies) >= 4:
-                            return recommended_movies
-                        break
-                else:
-                    continue
-                break
-        return recommended_movies
+                        movie_scores[movie] += 1
+
+        sorted_movies = sorted(movie_scores.items(), key=lambda item: item[1], reverse=True)
+
+        recommendations = [movie for movie, score in sorted_movies if score > 0]
+        return recommendations[:4]
 
     def get_recommendations(self, entities: list[Entity]) -> list[Entity]:
         all_relations = [
