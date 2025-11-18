@@ -62,11 +62,11 @@ class Agent:
                       f"Please provide a brief and engaging explanation for why these are good recommendations. "
                       f"You can highlight shared genres, directors, actors, or themes that match the user's request.")
 
-            try:
-                llm_response = self.llm_handler.prompt(prompt)
-                room.post_messages(llm_response)
-            except Exception as e:
-                room.post_messages(f"⚠️ Oops, something went wrong while generating the explanation: {e}")
+            # try:
+            #     llm_response = self.llm_handler.prompt(prompt)
+            #     room.post_messages(llm_response)
+            # except Exception as e:
+            #     room.post_messages(f"⚠️ Oops, something went wrong while generating the explanation: {e}")
         else:
             room.post_messages(
                 "I couldn't find any recommendations based on your input. Please try with different movies or properties.")
@@ -77,7 +77,7 @@ class Agent:
 
         movie_scores = defaultdict(int)
 
-        for movie in all_movies:
+        for movie in random.sample(all_movies, 30):
             for relation, properties in movie.properties.items():
                 for prop in properties:
                     prop_label = ""
@@ -87,12 +87,12 @@ class Agent:
                         prop_label = prop.lower()
 
                     if prop_label and prop_label in message_content_lower:
-                        movie_scores[movie] += 1
+                        movie_scores[movie] += len(prop_label)
 
         sorted_movies = sorted(movie_scores.items(), key=lambda item: item[1], reverse=True)
 
         recommendations = [movie for movie, score in sorted_movies if score > 0]
-        return recommendations[:4]
+        return recommendations[:2]
 
     def get_recommendations(self, entities: list[Entity]) -> list[Entity]:
         all_relations = [
