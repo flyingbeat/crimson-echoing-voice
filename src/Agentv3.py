@@ -32,9 +32,9 @@ class Agent:
         ]
 
         self.generic_answers = [
-            "Based on your selection, you might also enjoy these movies:",
-            "Here are some similar movies I found for you:",
-            "If you liked those, you should check out these recommendations:"
+            "Based on your input, you might enjoy these movies:",
+            "Here are some  movies I found for you:",
+            "If you liked that, you should check out these recommendations:"
         ]
 
     def run(self):
@@ -46,7 +46,7 @@ class Agent:
         message = Message(content)
         entities_in_message = message.entities
 
-        if len(entities_in_message) <= 1:
+        if len(entities_in_message) < 1:
             recommendations = self.get_recommendations_by_property(message)
         else:
             recommendations = self.get_recommendations(entities_in_message)

@@ -86,15 +86,22 @@ class KnowledgeGraph:
         ]
 
     def get_triplets(
-        self,
-        entity: Entity = None,
-        relation: Relation = None,
-        property: Property = None,
-        distinct: bool = False,
+            self,
+            entity: Entity = None,
+            relation: Relation = None,
+            property: Property = None,
+            distinct: bool = False,
     ) -> list[tuple[Entity, Relation, Property]]:
-        entity_value_or_var = f"<{entity}>" if entity else "?entity"
-        relation_value_or_var = f"<{relation}>" if relation else "?relation"
-        property_value_or_var = f"<{property}>" if property else "?property"
+        entity_value_or_var = f"<{entity.uri}>" if entity else "?entity"
+        relation_value_or_var = f"<{relation.uri}>" if relation else "?relation"
+
+        property_value_or_var = "?property"
+        if property is not None:
+            if isinstance(property, Entity) or hasattr(property, 'uri'):
+                property_value_or_var = f"<{property.uri}>"
+            else:
+                clean_property = str(property).replace('"', '\\"')
+                property_value_or_var = f'"{clean_property}"'
 
         query = f"""
             SELECT {"DISTINCT" if distinct else ""} {"?entity" if entity is None else ""} {"?relation" if relation is None else ""} {"?property" if property is None else ""}  WHERE {{
@@ -110,7 +117,7 @@ class KnowledgeGraph:
         num_results = len(e) if e else len(r) if r else len(p) if p else 0
         return [
             (
-                Entity.from_binding(e[i], self) if e else entity_value_or_var,
+                Entity.from_binding(e[i], self) if e else entity,
                 Relation.from_binding(r[i], self) if r else relation,
                 (
                     (
