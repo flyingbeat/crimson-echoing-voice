@@ -43,7 +43,7 @@ class Agent:
     def on_new_message(self, content: str, room: Chatroom):
         room.post_messages(random.choice(self.thinking_messages))
 
-        message = Message(content)
+        message = Message(content, self.__knowledge_graph)
         entities_in_message = message.entities
 
         if len(entities_in_message) < 1:
@@ -72,27 +72,29 @@ class Agent:
                 "I couldn't find any recommendations based on your input. Please try with different movies or properties.")
 
     def get_recommendations_by_property(self, message: Message) -> list[Entity]:
-        all_movies = self.__knowledge_graph.entities
-        message_content_lower = message.content.lower()
+        found_properties = message.properties
 
-        movie_scores = defaultdict(int)
+        if not found_properties:
+            return []
 
-        for movie in random.sample(all_movies, 30):
-            for relation, properties in movie.properties.items():
-                for prop in properties:
-                    prop_label = ""
-                    if isinstance(prop, Entity):
-                        prop_label = prop.label.lower()
-                    elif isinstance(prop, str):
-                        prop_label = prop.lower()
+        all_similar_entities = []
+        for prop, rel in found_properties:
+            entities_with_property = self.__knowledge_graph.get_triplets(
+                None, rel, prop
+            )
+            if entities_with_property:
+                all_similar_entities.extend([e for e, _, _ in entities_with_property])
 
-                    if prop_label and prop_label in message_content_lower:
-                        movie_scores[movie] += len(prop_label)
+        if not all_similar_entities:
+            return []
 
-        sorted_movies = sorted(movie_scores.items(), key=lambda item: item[1], reverse=True)
+        movie_counts = Counter(all_similar_entities)
 
-        recommendations = [movie for movie, score in sorted_movies if score > 0]
-        return recommendations[:2]
+        sorted_recommendations = [
+            movie
+            for movie, _ in movie_counts.most_common(10)
+        ]
+        return sorted_recommendations[:2]
 
     def get_recommendations(self, entities: list[Entity]) -> list[Entity]:
         all_relations = [
