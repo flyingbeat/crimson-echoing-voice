@@ -77,29 +77,22 @@ class Agent:
 
         movie_scores = defaultdict(int)
 
-        target_relations = {
-            "director", "award", "screenwriter",
-            "nominated for", "cast member", "genre"
-        }
-
-        for movie in random.sample(all_movies, 1000):
+        for movie in random.sample(all_movies, 30):
             for relation, properties in movie.properties.items():
-                if relation.label and relation.label.lower() in target_relations:
-                    for prop in properties:
-                        prop_label = ""
-                        if isinstance(prop, Entity):
-                            if prop.label:
-                                prop_label = prop.label.lower()
-                        elif isinstance(prop, str):
-                            prop_label = prop.lower()
+                for prop in properties:
+                    prop_label = ""
+                    if isinstance(prop, Entity):
+                        prop_label = prop.label.lower()
+                    elif isinstance(prop, str):
+                        prop_label = prop.lower()
 
-                        if prop_label and prop_label in message_content_lower:
-                            movie_scores[movie] += len(prop_label)
+                    if prop_label and prop_label in message_content_lower:
+                        movie_scores[movie] += len(prop_label)
 
         sorted_movies = sorted(movie_scores.items(), key=lambda item: item[1], reverse=True)
 
         recommendations = [movie for movie, score in sorted_movies if score > 0]
-        return recommendations[:3]
+        return recommendations[:2]
 
     def get_recommendations(self, entities: list[Entity]) -> list[Entity]:
         all_relations = [
