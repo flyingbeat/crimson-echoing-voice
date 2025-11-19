@@ -138,7 +138,7 @@ class Recommendations:
                 SELECT ?uri ?label WHERE {{
                     ?uri <{RDFS.label}> ?label .
                     ?uri ?relation <{prop.uri}> .
-                    {{ {SPARQLQuery.union_clauses(condition_triplets)} }}
+                    {{ {SPARQLQuery.union_clauses(condition_triplets, ["uri"])} }}
                 }}
             """
             query_result = knowledge_graph.query(query)
