@@ -69,7 +69,9 @@ class Recommendations:
         relevant_instance_of_entities: list[Entity] = [],
     ) -> "Recommendations":
         return cls(
-            cls.__based_on_properties(properties, knowledge_graph),
+            cls.__based_on_properties(
+                properties, knowledge_graph, relevant_instance_of_entities
+            ),
             knowledge_graph=knowledge_graph,
             relevant_instance_of_entities=relevant_instance_of_entities,
         )
