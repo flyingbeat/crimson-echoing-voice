@@ -1,4 +1,5 @@
 import re
+import time
 
 from thefuzz import fuzz, process
 
@@ -43,19 +44,26 @@ RELATION_LABEL_SYNONYMS = {
     "country of origin": ["origin", "country", "country of origin"],
     "cast member": ["actor", "actress", "cast", "cast member"],
     "genre": ["type", "kind", "genre"],
+    "film": ["movie"],
 }
 
 
 class Message:
 
-    def __init__(self, content: str):
+    def __init__(self, content: str, knowledge_graph: KnowledgeGraph):
         self.__content = content
         self.__entities_with_scores = None
         self.__relations_with_scores = None
+        self.__knowledge_graph = knowledge_graph
+        self.__relevant_instance_of_entities = Entity.movies(self.__knowledge_graph)
 
     @property
     def content(self) -> str:
         return self.__content
+
+    @content.setter
+    def content(self, value: str):
+        self.__content = value
 
     @property
     def relations(self) -> list[Relation]:
@@ -70,9 +78,9 @@ class Message:
         return self.__relations_with_scores
 
     def __get_relations_with_scores(self) -> list[tuple[Relation, int]]:
-        knowledge_graph_relations = KnowledgeGraph().relations
+        knowledge_graph_relations = self.__knowledge_graph.relations
         query_lower = self.content.lower()
-        normalized_query = self.__normalize_for_relations(self.content)
+        normalized_query = self.__normalize_for_relations()
         matches = []
 
         for relation in knowledge_graph_relations:
@@ -128,9 +136,25 @@ class Message:
 
     @property
     def entities(self) -> list[Entity]:
-        if self.__entities_with_scores is None:
-            self.__entities_with_scores = self.__get_entities_with_scores()
-        return [entity for entity, _ in self.__entities_with_scores]
+        return [
+            entity
+            for entity, _ in self.entities_with_scores
+            if any(
+                instance in self.__relevant_instance_of_entities
+                for instance in entity.instance_of
+            )
+        ]
+
+    @property
+    def properties(self) -> list[str]:
+        return [
+            entity
+            for entity, _ in self.entities_with_scores
+            if not any(
+                instance in self.__relevant_instance_of_entities
+                for instance in entity.instance_of
+            )
+        ]
 
     @property
     def entities_with_scores(self) -> list[tuple[Entity, int]]:
@@ -139,7 +163,7 @@ class Message:
         return self.__entities_with_scores
 
     def __get_entities_with_scores(self) -> list[tuple[Entity, int]]:
-        knowledge_graph_entities = KnowledgeGraph().entities
+        knowledge_graph_entities = self.__knowledge_graph.entities
 
         remaining_query = self.content.lower()
         matches = []

@@ -1,15 +1,16 @@
-from collections import Counter, defaultdict
 import random
+import time
+from collections import Counter, defaultdict
 
 from speakeasypy import Chatroom, EventType, Speakeasy
 
 from Entity import Entity
+
+# from handlers.llm_handler import LLMHandler
 from KnowledgeGraph import KnowledgeGraph
 from Message import Message
 from Property import Property
-from Relation import Relation
-from Util import Util
-from handlers.llm_handler import LLMHandler
+from Recommendation import Recommendations
 
 
 class Agent:
@@ -18,7 +19,7 @@ class Agent:
         self.speakeasy = speakeasy
         self.sparql_endpoint = sparql_endpoint
         self.__knowledge_graph = KnowledgeGraph(sparql_endpoint)
-        self.llm_handler = LLMHandler()
+        # self.llm_handler = LLMHandler()
 
         self.speakeasy.login()
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
@@ -28,13 +29,13 @@ class Agent:
             "Let me check that for you.",
             "Thinking...",
             "Searching for the best recommendations...",
-            "Give me a moment to find something great for you."
+            "Give me a moment to find something great for you.",
         ]
 
         self.generic_answers = [
             "Based on your input, you might enjoy these movies:",
             "Here are some movies I found for you:",
-            "Based on your request, you should check out these recommendations:"
+            "Based on your request, you should check out these recommendations:",
         ]
 
     def run(self):
@@ -43,24 +44,35 @@ class Agent:
     def on_new_message(self, content: str, room: Chatroom):
         room.post_messages(random.choice(self.thinking_messages))
 
-        message = Message(content)
+        message = Message(content, self.__knowledge_graph)
+        e_start = time.time()
         entities_in_message = message.entities
-
-        if len(entities_in_message) < 1:
-            recommendations = self.get_recommendations_by_property(message)
-        else:
-            recommendations = self.get_recommendations(entities_in_message)
+        e_end = time.time()
+        print(f"entities time: {e_end - e_start}")
+        start = time.time()
+        properties_in_message = message.properties
+        end = time.time()
+        print(f"time: {end-start}")
+        print(entities_in_message, properties_in_message)
+        recommendations = self.get_recommendations(
+            entities=entities_in_message, properties=properties_in_message
+        )
 
         if recommendations:
             recommendation_labels = [entity.label for entity in recommendations]
 
-            initial_response = f"{random.choice(self.generic_answers)}\n- " + "\n- ".join(recommendation_labels)
+            initial_response = (
+                f"{random.choice(self.generic_answers)}\n- "
+                + "\n- ".join(recommendation_labels)
+            )
             room.post_messages(initial_response)
 
-            prompt = (f"A user has requested movies with certain properties, and based on this, "
-                      f"I have recommended the following movies: {', '.join(recommendation_labels)}. "
-                      f"Please provide a brief and engaging explanation for why these are good recommendations. "
-                      f"You can highlight shared genres, directors, actors, or themes that match the user's request.")
+            # prompt = (
+            #     f"A user has requested movies with certain properties, and based on this, "
+            #     f"I have recommended the following movies: {', '.join(recommendation_labels)}. "
+            #     f"Please provide a brief and engaging explanation for why these are good recommendations. "
+            #     f"You can highlight shared genres, directors, actors, or themes that match the user's request."
+            # )
 
             # try:
             #     llm_response = self.llm_handler.prompt(prompt)
@@ -69,71 +81,23 @@ class Agent:
             #     room.post_messages(f"⚠️ Oops, something went wrong while generating the explanation: {e}")
         else:
             room.post_messages(
-                "I couldn't find any recommendations based on your input. Please try with different movies or properties.")
+                "I couldn't find any recommendations based on your input. Please try with different movies or properties."
+            )
 
-    def get_recommendations_by_property(self, message: Message) -> list[Entity]:
-        all_movies = self.__knowledge_graph.entities
-        message_content_lower = message.content.lower()
+    def get_recommendations(
+        self,
+        entities: list[Entity],
+        properties: list[Property],
+    ) -> list[Entity]:
+        from_entities = []
+        from_properties = []
+        if entities:
+            return Recommendations.from_entities(
+                entities, knowledge_graph=self.__knowledge_graph
+            )
+        else:
+            return Recommendations.from_properties(
+                properties, knowledge_graph=self.__knowledge_graph
+            )
 
-        movie_scores = defaultdict(int)
-
-        for movie in random.sample(all_movies, 30):
-            for relation, properties in movie.properties.items():
-                for prop in properties:
-                    prop_label = ""
-                    if isinstance(prop, Entity):
-                        prop_label = prop.label.lower()
-                    elif isinstance(prop, str):
-                        prop_label = prop.lower()
-
-                    if prop_label and prop_label in message_content_lower:
-                        movie_scores[movie] += len(prop_label)
-
-        sorted_movies = sorted(movie_scores.items(), key=lambda item: item[1], reverse=True)
-
-        recommendations = [movie for movie, score in sorted_movies if score > 0]
-        return recommendations[:2]
-
-    def get_recommendations(self, entities: list[Entity]) -> list[Entity]:
-        all_relations = [
-            relation for entity in entities for relation in entity.relations
-        ]
-        common_relations = Util.get_common_values(all_relations)
-
-        common_properties_per_relation = {}
-        for relation, _ in common_relations:
-            all_properties_for_relation = []
-            for entity in entities:
-                properties = entity.properties.get(relation)
-                if properties:
-                    all_properties_for_relation.extend(properties)
-
-            if all_properties_for_relation:
-                common_properties = Util.get_common_values(
-                    all_properties_for_relation
-                )
-                if common_properties:
-                    common_properties_per_relation[relation] = common_properties
-
-        all_similar_entities = []
-        for (
-            common_relation,
-            common_properties,
-        ) in common_properties_per_relation.items():
-            for common_property, _ in common_properties:
-                entities_with_property = self.__knowledge_graph.get_triplets(
-                    None, common_relation, common_property
-                )
-
-                if entities_with_property:
-                    all_similar_entities.extend([e for e, _, _ in entities_with_property])
-
-        movie_counts = Counter(all_similar_entities)
-
-        input_entity_uris = {entity.uri for entity in entities}
-        sorted_recommendations = [
-            movie
-            for movie, _ in movie_counts.most_common(10)
-            if str(movie.uri) not in input_entity_uris
-        ]
-        return sorted_recommendations
+        return set(from_entities + from_properties)

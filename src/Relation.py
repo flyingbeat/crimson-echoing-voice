@@ -5,7 +5,6 @@ from rdflib import RDFS, Namespace, URIRef
 from SPARQLQuery import BindingDict
 
 if TYPE_CHECKING:
-    from Entity import Entity
     from KnowledgeGraph import KnowledgeGraph
 
 SCHEMA = Namespace("http://schema.org/")
@@ -27,6 +26,13 @@ class Relation:
         if isinstance(other, Relation):
             return self.__uri == other.__uri
         return False
+
+    @classmethod
+    def instance_of(cls, knowledge_graph: "KnowledgeGraph") -> "Relation":
+        return cls(
+            uri=URIRef("http://www.wikidata.org/prop/direct/P31"),
+            knowledge_graph=knowledge_graph,
+        )
 
     @property
     def uri(self) -> URIRef:
