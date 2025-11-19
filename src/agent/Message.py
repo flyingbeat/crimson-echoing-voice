@@ -1,11 +1,8 @@
 import re
-import time
 
 from thefuzz import fuzz, process
 
-from Entity import Entity
-from KnowledgeGraph import KnowledgeGraph
-from Relation import Relation
+from core import Entity, KnowledgeGraph, Relation
 
 RELATION_LABEL_SYNONYMS = {
     "director": ["director", "directed", "directs", "direct"],

@@ -1,13 +1,9 @@
-import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Iterator, Optional
 
 from openai import OpenAI
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ResponseFormat(Enum):
@@ -71,11 +67,8 @@ class LargeLanguageModel:
 
         self.progress_callback: Optional[Callable] = None
 
-        logger.info(f"LLMHandler initialized with endpoint: {llm_service_endpoint}")
-
     def set_prompt_template(self, template: PromptTemplate):
         self.default_template = template
-        logger.info("Prompt template updated")
 
     def set_progress_callback(self, callback: Callable[[str, Optional[float]], None]):
         self.progress_callback = callback
@@ -97,7 +90,6 @@ class LargeLanguageModel:
         model = model or self.default_model
 
         formatted = template.format(prompt)
-        logger.info(f"Prompt formatted for model {formatted}")
 
         messages = [
             {"role": "system", "content": formatted["system"]},
@@ -131,7 +123,6 @@ class LargeLanguageModel:
                 )
 
         except Exception as e:
-            logger.error(f"Error during LLM request: {e}")
             self._update_progress(f"Error: {str(e)}")
             raise
 
@@ -182,7 +173,6 @@ class LargeLanguageModel:
             self._update_progress("Stream complete")
 
         except Exception as e:
-            logger.error(f"Streaming error: {e}")
             self._update_progress(f"Stream error: {str(e)}")
             raise
 
@@ -205,14 +195,12 @@ class LargeLanguageModel:
 
                 self._update_progress("Complete")
 
-                logger.info(f"Response received: {len(result)} characters")
                 return result
 
             except Exception as e:
                 retries += 1
-                logger.warning(f"Attempt {retries} failed: {e}")
                 if retries >= self.max_retries:
-                    raise
+                    raise e
                 time.sleep(2**retries)
 
     def _handle_streaming_response(
@@ -240,26 +228,15 @@ class LargeLanguageModel:
 
         self._update_progress("Stream complete")
 
-        logger.info(
-            f"Streamed response: {len(result)} characters in {chunk_count} chunks"
-        )
         return result
 
     def _update_progress(self, status: str, progress: Optional[float] = None):
         if self.progress_callback:
             self.progress_callback(status, progress)
-        if progress is not None:
-            logger.debug(f"Progress: {status} ({progress:.1%})")
-        else:
-            logger.debug(f"Status: {status}")
 
     def health_check(self) -> bool:
         try:
-            models = self.llm_client.models.list()
-            logger.info(
-                f"Health check passed. Available models: {[m.id for m in models]}"
-            )
+            self.llm_client.models.list()
             return True
-        except Exception as e:
-            logger.error(f"Health check failed: {e}")
+        except Exception:
             return False

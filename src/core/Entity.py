@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING
 
 from rdflib import URIRef
 
-from Relation import Relation
-from SPARQLQuery import BindingDict
+from utils import BindingDict
+
+from .Relation import Relation
 
 if TYPE_CHECKING:
-    from KnowledgeGraph import KnowledgeGraph
-    from Property import Property
+    from core import KnowledgeGraph, Property
 
 
 class Entity:
@@ -22,7 +22,7 @@ class Entity:
         self.__uri = uri
         self.__label: str | None = label
         self.__knowledge_graph = knowledge_graph
-        self.__properties: dict["Relation", list["Property"]] = {}
+        self.__properties: dict[Relation, list["Property"]] = {}
         if instance_of:
             self.__properties[Relation.instance_of(knowledge_graph)] = [
                 Entity(instance_of, knowledge_graph)
@@ -54,12 +54,12 @@ class Entity:
         return self.__uri
 
     @property
-    def properties(self) -> dict["Relation", list["Property"]]:
+    def properties(self) -> dict[Relation, list["Property"]]:
         if not self.__properties:
             self.__properties = self.__get_properties()
         return self.__properties
 
-    def __get_properties(self) -> dict["Relation", list["Property"]]:
+    def __get_properties(self) -> dict[Relation, list["Property"]]:
         properties = self.__knowledge_graph.get_properties(self)
         if properties:
             property_dict = defaultdict(list)
@@ -69,7 +69,7 @@ class Entity:
         return {}
 
     @property
-    def relations(self) -> list["Relation"]:
+    def relations(self) -> list[Relation]:
         return list(self.properties.keys())
 
     @property

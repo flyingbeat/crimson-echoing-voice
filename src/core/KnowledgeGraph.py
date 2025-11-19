@@ -1,10 +1,11 @@
 from rdflib import RDFS, Namespace, URIRef
 from SPARQLWrapper import JSON, SPARQLWrapper
 
-from Entity import Entity
-from Property import Property
-from Relation import Relation
-from SPARQLQuery import BindingDict, SPARQLQuery
+from utils import BindingDict, SPARQLQuery
+
+from .Entity import Entity
+from .Property import Property
+from .Relation import Relation
 
 WD = Namespace("http://www.wikidata.org/entity/")
 WDT = Namespace("http://www.wikidata.org/prop/direct/")

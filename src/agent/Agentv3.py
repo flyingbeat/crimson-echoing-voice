@@ -1,17 +1,16 @@
-import random
 import time
+from random import choice
 
 from speakeasypy import Chatroom, EventType, Speakeasy
 
-from Entity import Entity
-from KnowledgeGraph import KnowledgeGraph
-from LargeLanguageModel import LargeLanguageModel
-from Message import Message
-from Property import Property
-from Recommendation import Recommendations
+from core import Entity, KnowledgeGraph, Property
+from llm import LargeLanguageModel
+
+from .Message import Message
+from .Recommendations import Recommendations
 
 
-class Agent:
+class Agentv3:
 
     def __init__(self, speakeasy: Speakeasy, sparql_endpoint: str):
         self.speakeasy = speakeasy
@@ -43,7 +42,7 @@ class Agent:
         self.speakeasy.start_listening()
 
     def on_new_message(self, content: str, room: Chatroom):
-        room.post_messages(random.choice(self.thinking_messages))
+        room.post_messages(choice(self.thinking_messages))
 
         message = Message(content, self.__knowledge_graph)
 
@@ -82,9 +81,8 @@ class Agent:
             #     room.post_messages(
             #         f"⚠️ Oops, something went wrong while generating the explanation: {e}"
             #     )
-            initial_response = (
-                f"{random.choice(self.generic_answers)}\n- "
-                + "\n- ".join(recommendation_labels)
+            initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
+                recommendation_labels
             )
             room.post_messages(initial_response)
         else:

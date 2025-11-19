@@ -2,10 +2,10 @@ from typing import TYPE_CHECKING
 
 from rdflib import RDFS, Namespace, URIRef
 
-from SPARQLQuery import BindingDict
+from utils import BindingDict
 
 if TYPE_CHECKING:
-    from KnowledgeGraph import KnowledgeGraph
+    from .KnowledgeGraph import KnowledgeGraph
 
 SCHEMA = Namespace("http://schema.org/")
 

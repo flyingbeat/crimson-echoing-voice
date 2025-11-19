@@ -38,23 +38,5 @@ COPY . .
 # Make scripts executable
 RUN chmod +x scripts/start_services.sh
 
-# Create a startup script that runs both services and the Python app
-RUN echo '#!/bin/bash\n\
-echo "Starting services..."\n\
-# Start the services in the background\n\
-./scripts/start_services.sh &\n\
-\n\
-echo "Waiting for services to start..."\n\
-sleep 10\n\
-\n\
-echo "Starting Python application..."\n\
-# Start the Python application\n\
-exec python src/agent_v2.py' > /app/startup.sh
-
-RUN chmod +x /app/startup.sh
-
 # Expose ports (adjust as needed)
 EXPOSE 8080 3030 8000
-
-# Set the default command
-CMD ["/app/startup.sh"]

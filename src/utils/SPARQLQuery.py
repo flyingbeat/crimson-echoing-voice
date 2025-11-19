@@ -3,9 +3,7 @@ from typing import TYPE_CHECKING, TypedDict, Union
 from SPARQLWrapper import SPARQLWrapper
 
 if TYPE_CHECKING:
-    from Entity import Entity
-    from Property import Property
-    from Relation import Relation
+    from core import Entity, Property, Relation
 
 
 BindingDict = TypedDict("BindingDict", {"type": str, "value": str})

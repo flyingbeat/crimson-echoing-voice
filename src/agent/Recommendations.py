@@ -2,12 +2,8 @@ from collections import Counter
 
 from rdflib import RDFS, URIRef
 
-from Entity import Entity
-from KnowledgeGraph import KnowledgeGraph
-from Property import Property
-from Relation import Relation
-from SPARQLQuery import SPARQLQuery
-from Util import Util
+from core import Entity, KnowledgeGraph, Property, Relation
+from utils import SPARQLQuery, get_common_values
 
 
 class Recommendations:
@@ -15,7 +11,7 @@ class Recommendations:
     def __init__(
         self,
         recommendations: list[Entity],
-        knowledge_graph: "KnowledgeGraph",
+        knowledge_graph: KnowledgeGraph,
         relevant_instance_of_entities: list[Entity] | None = None,
     ):
         self.__recommendations = recommendations
@@ -43,7 +39,7 @@ class Recommendations:
         return iter(self.__recommendations)
 
     def __str__(self):
-        return f"Recommendations({', '.join([str(entity) for entity in self.__recommendations])})"
+        return str(self.__recommendations)
 
     def __len__(self):
         return len(self.__recommendations)
@@ -58,7 +54,7 @@ class Recommendations:
 
     @classmethod
     def from_entities(
-        cls, entities: list[Entity], knowledge_graph: "KnowledgeGraph"
+        cls, entities: list[Entity], knowledge_graph: KnowledgeGraph
     ) -> "Recommendations":
         return Recommendations(
             cls.__based_on_entities(entities, knowledge_graph),
@@ -69,7 +65,7 @@ class Recommendations:
     def from_properties(
         cls,
         properties: list[str],
-        knowledge_graph: "KnowledgeGraph",
+        knowledge_graph: KnowledgeGraph,
         relevant_instance_of_entities: list[Entity] = [],
     ) -> "Recommendations":
         return cls(
@@ -80,12 +76,12 @@ class Recommendations:
 
     @staticmethod
     def __based_on_entities(
-        entities: list[Entity], knowledge_graph: "KnowledgeGraph"
+        entities: list[Entity], knowledge_graph: KnowledgeGraph
     ) -> list[Entity]:
         all_relations = [
             relation for entity in entities for relation in entity.relations
         ]
-        common_relations = Util.get_common_values(all_relations)
+        common_relations = get_common_values(all_relations)
 
         common_properties_per_relation = {}
         for relation, _ in common_relations:
@@ -96,7 +92,7 @@ class Recommendations:
                     all_properties_for_relation.extend(properties)
 
             if all_properties_for_relation:
-                common_properties = Util.get_common_values(all_properties_for_relation)
+                common_properties = get_common_values(all_properties_for_relation)
                 if common_properties:
                     common_properties_per_relation[relation] = common_properties
 
@@ -128,7 +124,7 @@ class Recommendations:
     @staticmethod
     def __based_on_properties(
         properties: list[Property],
-        knowledge_graph: "KnowledgeGraph",
+        knowledge_graph: KnowledgeGraph,
         relevant_instance_of_entities: list[Entity] = [],
     ) -> list[Entity]:
         condition_triplets = [
