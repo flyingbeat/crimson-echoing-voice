@@ -65,26 +65,32 @@ class Agentv3:
         if recommendations:
             recommendation_labels = [entity.label for entity in recommendations]
 
-            # prompt = (
-            #     f"A user has requested movies with certain properties, and based on this, "
-            #     f"Please provide a brief and engaging explanation for why these are good recommendations. "
-            # )
-            # context = (
-            #     f"The user requested movies related to: {', '.join([entity.label for entity in entities_in_message]) or ', '.join([p.label for p in properties_in_message])}. "
-            #     f"The recommended movies are: {', '.join(recommendation_labels)}."
-            # )
-
-            # try:
-            #     llm_response = self.llm_handler.prompt(prompt, context=context)
-            #     room.post_messages(llm_response)
-            # except Exception as e:
-            #     room.post_messages(
-            #         f"⚠️ Oops, something went wrong while generating the explanation: {e}"
-            #     )
-            initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
-                recommendation_labels
+            prompt = (
+                "A user has requested movies with certain properties, and based on this, "
+                "Please provide a very short and engaging explanation for why these are good recommendations. "
+                "Filter out any movies you think are not relevant only include relevant answers"
             )
-            room.post_messages(initial_response)
+            context = (
+                f"The user requested movies related to: {', '.join([entity.label for entity in entities_in_message]) or ', '.join([p.label for p in properties_in_message])}. "
+                f"The recommended movies are: {', '.join(recommendation_labels)}."
+            )
+
+            try:
+                print(context)
+                llm_response = self.__llm.prompt(
+                    prompt, context=context, max_tokens=200
+                )
+                print(llm_response)
+                room.post_messages(llm_response)
+            except Exception as e:
+                print(e)
+                room.post_messages(
+                    f"⚠️ Oops, something went wrong while generating the explanation"
+                )
+                initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
+                    recommendation_labels
+                )
+                room.post_messages(initial_response)
         else:
             room.post_messages(
                 "I couldn't find any recommendations based on your input. Please try with different movies or properties."

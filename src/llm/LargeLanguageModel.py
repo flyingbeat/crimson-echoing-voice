@@ -17,10 +17,11 @@ class PromptTemplate:
     1) You should be good in conversation, friendly and welcoming
     2) Do not use prior knowledge, give response to query by using the context provided
     3) you should only answer questions related to movies
-    4) Keep your answers short
+    4) Keep your answers short NEVER GO BEYOND 400 CHARACTERS
+    5) never use asterix * or underscores _
     """
     context: str = ""
-    user_prefix: str = "Given this information, please answer the question: "
+    user_prefix: str = ""#"Given this information, please answer the question: "
     user_suffix: str = ""
     assistant_prefix: Optional[str] = None
 
