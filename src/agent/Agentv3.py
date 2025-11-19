@@ -71,7 +71,7 @@ class Agentv3:
 
         if recommendations:
             recommendation_labels = [entity.label for entity in recommendations]
-            print()
+            print(f"Recommendations: {recommendation_labels}")
             initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
                 recommendation_labels
             )
