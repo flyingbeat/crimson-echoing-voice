@@ -13,11 +13,35 @@ SCHEMA = Namespace("http://schema.org/")
 
 
 class KnowledgeGraph:
+    PROPERTIES_TO_PRELOAD = {
+        "director": "http://www.wikidata.org/prop/direct/P57",
+        "cast member": "http://www.wikidata.org/prop/direct/P161",
+        "genre": "http://www.wikidata.org/prop/direct/P136",
+    }
+
     def __init__(self, endpoint_url: str = "http://localhost:3030/atai/sparql"):
         self.__endpoint_url = endpoint_url
         self.__graph = self.__load_graph(self.__endpoint_url)
         self.__entities = None
         self.__relations = None
+        self.__property_cache = {}
+
+        self.__preload_properties()
+
+    def __preload_properties(self):
+        for label, uri in self.PROPERTIES_TO_PRELOAD.items():
+            relation_to_load = Relation(URIRef(uri), self)
+            triplets = self.get_triplets(relation=relation_to_load, distinct=True)
+            self.__property_cache[uri] = {triplet[2] for triplet in triplets}
+        print("Property preloading complete.")
+
+    def get_all_preloaded_properties_with_relations(self) -> list[tuple[Property, Relation]]:
+        all_properties = []
+        for rel_uri, props in self.__property_cache.items():
+            relation_object = Relation(URIRef(rel_uri), self)
+            for prop in props:
+                all_properties.append((prop, relation_object))
+        return all_properties
 
     def get_uri(self, label: str) -> URIRef:
         triplet = self.get_triplets(None, Relation(RDFS.label, self), label)

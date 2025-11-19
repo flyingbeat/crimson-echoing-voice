@@ -10,16 +10,8 @@ RELATION_LABEL_SYNONYMS = {
     "director": ["director", "directed", "directs", "direct"],
     "award": ["award", "oscar", "prize"],
     "publication date": [
-        "release",
-        "date",
-        "released",
-        "releases",
-        "release date",
-        "publication",
-        "launch",
-        "broadcast",
-        "launched",
-        "come out",
+        "release", "date", "released", "releases", "release date", "publication",
+        "launch", "broadcast", "launched", "come out",
     ],
     "executive producer": ["showrunner", "executive producer"],
     "screenwriter": ["screenwriter", "scriptwriter", "writer", "story"],
@@ -27,18 +19,10 @@ RELATION_LABEL_SYNONYMS = {
     "box office": ["box", "office", "funding", "box office"],
     "cost": ["budget", "cost"],
     "nominated for": [
-        "nomination",
-        "award",
-        "finalist",
-        "shortlist",
-        "selection",
-        "nominated for",
+        "nomination", "award", "finalist", "shortlist", "selection", "nominated for",
     ],
     "production company": [
-        "company",
-        "company of production",
-        "produced",
-        "production company",
+        "company", "company of production", "produced", "production company",
     ],
     "country of origin": ["origin", "country", "country of origin"],
     "cast member": ["actor", "actress", "cast", "cast member"],
@@ -47,8 +31,7 @@ RELATION_LABEL_SYNONYMS = {
 
 
 class Message:
-    _property_cache = {}
-    _relations_cache = None
+    # Removed the static caches, as this is now handled by the KnowledgeGraph instance
 
     def __init__(self, content: str, knowledge_graph: KnowledgeGraph):
         self.__content = content
@@ -56,6 +39,7 @@ class Message:
         self.__entities_with_scores = None
         self.__relations_with_scores = None
         self.__properties_with_scores = None
+        self.fuzzy_threshold = 85  # Added for completeness
 
     @property
     def content(self) -> str:
@@ -193,40 +177,22 @@ class Message:
         return self.__properties_with_scores
 
     def __get_properties_with_scores(self) -> list[tuple[tuple[Property, Relation], int]]:
-        target_relation_labels = {
-            "director", "award", "screenwriter",
-            "nominated for", "cast member", "genre"
-        }
-
-        if Message._relations_cache is None:
-            Message._relations_cache = self.__knowledge_graph.relations
-
-        target_relations = [r for r in Message._relations_cache if r.label and r.label.lower() in target_relation_labels]
-
-        for relation in target_relations:
-            if relation.uri not in Message._property_cache:
-                triplets = self.__knowledge_graph.get_triplets(relation=relation, distinct=True)
-                Message._property_cache[relation.uri] = {triplet[2] for triplet in triplets}
-
         matches = []
         remaining_query = self.content.lower()
 
-        all_target_properties = []
-        for rel in target_relations:
-            props = Message._property_cache.get(rel.uri, set())
-            for prop in props:
-                all_target_properties.append((prop, rel))
+        all_target_properties = self.__knowledge_graph.get_all_preloaded_properties_with_relations()
 
-        sorted_properties = sorted(
-            all_target_properties,
-            key=lambda p: len(p[0].label) if hasattr(p[0], 'label') and p[0].label else (len(p[0]) if isinstance(p[0], str) else 0),
-            reverse=True
-        )
+        # sorted_properties = sorted(
+        #     all_target_properties,
+        #     key=lambda p: len(p[0].label) if isinstance(p[0], Entity) and p[0].label else (
+        #         len(p[0]) if isinstance(p[0], str) else 0),
+        #     reverse=True
+        # )
 
-        for prop, rel in sorted_properties:
+        for prop, rel in all_target_properties:
             prop_label = ""
-            if isinstance(prop, Entity):
-                prop_label = prop.label.lower() if prop.label else ""
+            if isinstance(prop, Entity) and prop.label:
+                prop_label = prop.label.lower()
             elif isinstance(prop, str):
                 prop_label = prop.lower()
 
