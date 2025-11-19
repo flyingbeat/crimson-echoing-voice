@@ -83,7 +83,9 @@ class Recommendations:
         all_relations = [
             relation for entity in entities for relation in entity.relations
         ]
-        common_relations = get_common_values(all_relations)
+        common_relations = get_common_values(
+            all_relations, min_count=2 if len(entities) > 1 else 1
+        )
 
         common_properties_per_relation = {}
         for relation, _ in common_relations:
