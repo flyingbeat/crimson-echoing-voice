@@ -19,7 +19,6 @@ class Agentv3:
         print("Loading entities...")
         self.__knowledge_graph.entities  # Preload entities
         print("Entities loaded.")
-        self.__llm = LargeLanguageModel()
 
         self.speakeasy.login()
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
@@ -30,12 +29,20 @@ class Agentv3:
             "Thinking...",
             "Searching for the best recommendations...",
             "Give me a moment to find something great for you.",
+            "Let me see what I can find.",
+            "I'm looking into it now.",
+            "Just a second, I'm gathering some recommendations.",
+            "Hold on, I'm fetching some options for you.",
+            "Let me think about that for a moment.",
         ]
 
         self.generic_answers = [
             "Based on your input, you might enjoy these movies:",
             "Here are some movies I found for you:",
             "Based on your request, you should check out these recommendations:",
+            "I've found the following movies that you might like:",
+            "You might find these movies interesting:",
+            "Here are some recommendations based on your input:",
         ]
 
     def run(self):
@@ -64,33 +71,11 @@ class Agentv3:
 
         if recommendations:
             recommendation_labels = [entity.label for entity in recommendations]
-
-            prompt = (
-                "A user has requested movies with certain properties, and based on this, "
-                "Please provide a very short and engaging explanation for why these are good recommendations. "
-                "Filter out any movies you think are not relevant only include relevant answers"
+            print()
+            initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
+                recommendation_labels
             )
-            context = (
-                f"The user requested movies related to: {', '.join([entity.label for entity in entities_in_message]) or ', '.join([p.label for p in properties_in_message])}. "
-                f"The recommended movies are: {', '.join(recommendation_labels)}."
-            )
-
-            try:
-                print(context)
-                llm_response = self.__llm.prompt(
-                    prompt, context=context, max_tokens=200
-                )
-                print(llm_response)
-                room.post_messages(llm_response)
-            except Exception as e:
-                print(e)
-                room.post_messages(
-                    f"⚠️ Oops, something went wrong while generating the explanation"
-                )
-                initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
-                    recommendation_labels
-                )
-                room.post_messages(initial_response)
+            room.post_messages(initial_response)
         else:
             room.post_messages(
                 "I couldn't find any recommendations based on your input. Please try with different movies or properties."
