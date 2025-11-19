@@ -4,7 +4,7 @@ from SPARQLWrapper import JSON, SPARQLWrapper
 from Entity import Entity
 from Property import Property
 from Relation import Relation
-from SPARQLQuery import SPARQLQuery
+from SPARQLQuery import BindingDict, SPARQLQuery
 
 WD = Namespace("http://www.wikidata.org/entity/")
 WDT = Namespace("http://www.wikidata.org/prop/direct/")
@@ -18,62 +18,9 @@ class KnowledgeGraph:
         self.__graph = self.__load_graph(self.__endpoint_url)
         self.__entities = None
         self.__relations = None
-        self.__relevant_instance_of_types = [
-            # Film Types
-            URIRef("http://www.wikidata.org/entity/Q11424"),  #'film'
-            URIRef("http://www.wikidata.org/entity/Q17123180"),  #'sequel film'
-            URIRef("http://www.wikidata.org/entity/Q202866"),  #'animated film'
-            URIRef("http://www.wikidata.org/entity/Q622548"),  #'parody film'
-            URIRef("http://www.wikidata.org/entity/Q622548"),  #'parody film'
-            URIRef("http://www.wikidata.org/entity/Q10590726"),  #'video album'
-            URIRef("http://www.wikidata.org/entity/Q917641"),  #'open-source film'
-            URIRef(
-                "http://www.wikidata.org/entity/Q52207399"
-            ),  #'film based on a novel'
-            URIRef("http://www.wikidata.org/entity/Q31235"),  #'remake'
-            URIRef("http://www.wikidata.org/entity/Q24862"),  #'short film'
-            URIRef("http://www.wikidata.org/entity/Q104840802"),  #'film remake'
-            URIRef("http://www.wikidata.org/entity/Q112158242"),  #'Tom and Jerry film'
-            URIRef("http://www.wikidata.org/entity/Q24856"),  #'film series'
-            URIRef(
-                "http://www.wikidata.org/entity/Q117467246"
-            ),  #'animated television series'
-            URIRef("http://www.wikidata.org/entity/Q2484376"),  #'thriller film',
-            URIRef("http://www.wikidata.org/entity/Q20650540"),  #'anime film',
-            URIRef("http://www.wikidata.org/entity/Q13593818"),  #'film trilogy'
-            URIRef("http://www.wikidata.org/entity/Q17517379"),  #'animated short film'
-            URIRef("http://www.wikidata.org/entity/Q678345"),  #'prequel'
-            URIRef("http://www.wikidata.org/entity/Q1257444"),  #'film adaptation'
-            URIRef(
-                "http://www.wikidata.org/entity/Q52162262"
-            ),  #'film based on literature'
-            URIRef(
-                "http://www.wikidata.org/entity/Q118189123"
-            ),  #'animated film reboot'
-            URIRef("http://www.wikidata.org/entity/Q1259759"),  #'miniseries'
-            URIRef("http://www.wikidata.org/entity/Q506240"),  #'television film'
-            # Property Types
-            URIRef("http://www.wikidata.org/entity/Q201658"),  # 'film genre'
-            URIRef("http://www.wikidata.org/entity/Q6256"),  # 'country'
-            URIRef("http://www.wikidata.org/entity/Q5"),  # 'human'
-            URIRef(
-                "http://www.wikidata.org/entity/Q1762059"
-            ),  # 'film production company'
-            URIRef(
-                "http://www.wikidata.org/entity/Q10689397"
-            ),  # 'television production company'
-            URIRef("http://www.wikidata.org/entity/Q375336"),  # 'film studio'
-            URIRef("http://www.wikidata.org/entity/Q19020"),  # 'Academy Awards'
-            URIRef("http://www.wikidata.org/entity/Q38033430"),  # 'class of award'
-            URIRef("http://www.wikidata.org/entity/Q618779"),  # 'award'
-            URIRef("http://www.wikidata.org/entity/Q4220917"),  # 'film award'
-            URIRef("http://www.wikidata.org/entity/Q1407225"),  # 'television award'
-            URIRef("http://www.wikidata.org/entity/Q1011547"),  # 'Golden Globe Award'
-            URIRef("http://www.wikidata.org/entity/Q559618"),  # 'fictional universe'
-            URIRef(
-                "http://www.wikidata.org/entity/Q23660208"
-            ),  # 'MPA classification category'
-        ]
+        self.__relevant_instance_of = Entity.instance_of_movies(
+            self
+        ) + Entity.instance_of_movie_properties(self)
 
     def get_uri(self, label: str) -> URIRef:
         triplet = self.get_triplets(None, Relation(RDFS.label, self), label)
@@ -82,16 +29,14 @@ class KnowledgeGraph:
         return ""
 
     def get_label(self, uri: URIRef) -> str:
-        triplet = self.get_triplets(
-            Entity(uri, None, None, self), Relation(RDFS.label, self), None
-        )
+        triplet = self.get_triplets(Entity(uri, self), Relation(RDFS.label, self), None)
         if triplet and isinstance(triplet[0][2], str):
             return triplet[0][2]
         return ""
 
     def get_description(self, uri: URIRef) -> str:
         triplet = self.get_triplets(
-            Entity(uri, None, None, self), Relation(SCHEMA.description, self), None
+            Entity(uri, self), Relation(SCHEMA.description, self), None
         )
         if triplet and isinstance(triplet[0][2], str):
             return triplet[0][2]
@@ -101,6 +46,9 @@ class KnowledgeGraph:
         return self.get_triplets(
             entity=entity, relation=None, property=None, distinct=True
         )
+
+    def query(self, query_string: str) -> dict[str, list[BindingDict]]:
+        return SPARQLQuery(self.__graph, query_string).query_and_convert()
 
     @property
     def relations(self) -> list[URIRef]:
@@ -123,32 +71,35 @@ class KnowledgeGraph:
     @property
     def entities(self) -> list[Entity]:
         if self.__entities is None:
-            self.__entities = self.__get_entities_with_labels()
+            self.__entities = self.__get_relevant_entities_with_labels()
         return self.__entities
 
-    def __get_entities_with_labels(self) -> list[Entity]:
-        union_clauses = []
-        for instance_type in self.__relevant_instance_of_types:
-            # Extract just the entity ID from the URIRef
-            entity_id = str(instance_type).split("/")[-1]
-            union_clauses.append(
-                f"?uri <http://www.wikidata.org/prop/direct/P31> <http://www.wikidata.org/entity/{entity_id}> ."
-            )
-
-        union_query = " UNION ".join([f"{{ {clause} }}" for clause in union_clauses])
+    def __get_relevant_entities_with_labels(self) -> list[Entity]:
+        condition_triplets = [
+            (None, Relation.instance_of(self), e) for e in self.__relevant_instance_of
+        ]
 
         query = f"""
             SELECT ?uri ?label ?instance_of
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
                 ?uri <http://www.wikidata.org/prop/direct/P31> ?instance_of .
-                {{ {union_query} }}
+                {{ {SPARQLQuery.union_clauses(condition_triplets, ["uri"])} }}
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
         return [
-            Entity(uri["value"], label["value"], instance_of["value"], self)
+            Entity(
+                URIRef(uri["value"]),
+                self,
+                label["value"],
+                (
+                    URIRef(instance_of["value"])
+                    if instance_of["type"] == "uri"
+                    else instance_of
+                ),
+            )
             for uri, label, instance_of in zip(
                 query_result["uri"], query_result["label"], query_result["instance_of"]
             )
@@ -206,7 +157,6 @@ class KnowledgeGraph:
         try:
             graph = SPARQLWrapper(endpoint_url)
             graph.setReturnFormat(JSON)
-            print("Knowledge graph loaded successfully.")
             return graph
         except Exception as e:
             print(f"Failed to load graph: {e}")

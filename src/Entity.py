@@ -15,9 +15,9 @@ class Entity:
     def __init__(
         self,
         uri: URIRef,
-        label: str | None,
-        instance_of: URIRef | None,
         knowledge_graph: "KnowledgeGraph",
+        label: str | None = None,
+        instance_of: URIRef | None = None,
     ):
         self.__uri = uri
         self.__label: str | None = label
@@ -25,7 +25,7 @@ class Entity:
         self.__properties: dict["Relation", list["Property"]] = {}
         if instance_of:
             self.__properties[Relation.instance_of(knowledge_graph)] = [
-                Entity(instance_of, None, None, knowledge_graph)
+                Entity(instance_of, knowledge_graph)
             ]
 
     def __repr__(self):
@@ -38,47 +38,6 @@ class Entity:
         if isinstance(other, Entity):
             return str(self.__uri) == str(other.__uri)
         return False
-
-    @classmethod
-    def movies(cls, knowledge_graph: "KnowledgeGraph") -> list["Entity"]:
-        movie_instance_of_uris = [
-            URIRef("http://www.wikidata.org/entity/Q11424"),  #'film'
-            URIRef("http://www.wikidata.org/entity/Q17123180"),  #'sequel film'
-            URIRef("http://www.wikidata.org/entity/Q202866"),  #'animated film'
-            URIRef("http://www.wikidata.org/entity/Q622548"),  #'parody film'
-            URIRef("http://www.wikidata.org/entity/Q622548"),  #'parody film'
-            URIRef("http://www.wikidata.org/entity/Q10590726"),  #'video album'
-            URIRef("http://www.wikidata.org/entity/Q917641"),  #'open-source film'
-            URIRef(
-                "http://www.wikidata.org/entity/Q52207399"
-            ),  #'film based on a novel'
-            URIRef("http://www.wikidata.org/entity/Q31235"),  #'remake'
-            URIRef("http://www.wikidata.org/entity/Q24862"),  #'short film'
-            URIRef("http://www.wikidata.org/entity/Q104840802"),  #'film remake'
-            URIRef("http://www.wikidata.org/entity/Q112158242"),  #'Tom and Jerry film'
-            URIRef("http://www.wikidata.org/entity/Q24856"),  #'film series'
-            URIRef(
-                "http://www.wikidata.org/entity/Q117467246"
-            ),  #'animated television series'
-            URIRef("http://www.wikidata.org/entity/Q2484376"),  #'thriller film',
-            URIRef("http://www.wikidata.org/entity/Q20650540"),  #'anime film',
-            URIRef("http://www.wikidata.org/entity/Q13593818"),  #'film trilogy'
-            URIRef("http://www.wikidata.org/entity/Q17517379"),  #'animated short film'
-            URIRef("http://www.wikidata.org/entity/Q678345"),  #'prequel'
-            URIRef("http://www.wikidata.org/entity/Q1257444"),  #'film adaptation'
-            URIRef(
-                "http://www.wikidata.org/entity/Q52162262"
-            ),  #'film based on literature'
-            URIRef(
-                "http://www.wikidata.org/entity/Q118189123"
-            ),  #'animated film reboot'
-            URIRef("http://www.wikidata.org/entity/Q1259759"),  #'miniseries'
-            URIRef("http://www.wikidata.org/entity/Q506240"),  #'television film'
-        ]
-        return [
-            cls(uri=uri, label=None, instance_of=None, knowledge_graph=knowledge_graph)
-            for uri in movie_instance_of_uris
-        ]
 
     @property
     def instance_of(self) -> list["Entity"]:
@@ -123,24 +82,84 @@ class Entity:
         return self.__knowledge_graph.get_label(uri)
 
     @classmethod
-    def film(cls, knowledge_graph: "KnowledgeGraph") -> "Entity":
-        return cls(
-            uri=URIRef("http://www.wikidata.org/entity/Q11424"),
-            label="film",
-            instance_of=None,
-            knowledge_graph=knowledge_graph,
-        )
-
-    @classmethod
     def from_binding(
         cls, binding: BindingDict, knowledge_graph: "KnowledgeGraph"
     ) -> "Entity":
         if binding["type"] == "uri":
             uri = URIRef(binding.get("value"))
-            return cls(
-                uri=uri, label=None, instance_of=None, knowledge_graph=knowledge_graph
-            )
+            return cls(uri=uri, knowledge_graph=knowledge_graph)
         else:
             raise ValueError(
                 f"Cannot create Entity from binding type: {binding['type']}"
             )
+
+    @classmethod
+    def instance_of_movies(cls, knowledge_graph: "KnowledgeGraph") -> list["Entity"]:
+        movie_instance_of_uris = [
+            URIRef("http://www.wikidata.org/entity/Q11424"),  #'film'
+            URIRef("http://www.wikidata.org/entity/Q17123180"),  #'sequel film'
+            URIRef("http://www.wikidata.org/entity/Q202866"),  #'animated film'
+            URIRef("http://www.wikidata.org/entity/Q622548"),  #'parody film'
+            URIRef("http://www.wikidata.org/entity/Q622548"),  #'parody film'
+            URIRef("http://www.wikidata.org/entity/Q10590726"),  #'video album'
+            URIRef("http://www.wikidata.org/entity/Q917641"),  #'open-source film'
+            URIRef(
+                "http://www.wikidata.org/entity/Q52207399"
+            ),  #'film based on a novel'
+            URIRef("http://www.wikidata.org/entity/Q31235"),  #'remake'
+            URIRef("http://www.wikidata.org/entity/Q24862"),  #'short film'
+            URIRef("http://www.wikidata.org/entity/Q104840802"),  #'film remake'
+            URIRef("http://www.wikidata.org/entity/Q112158242"),  #'Tom and Jerry film'
+            URIRef("http://www.wikidata.org/entity/Q24856"),  #'film series'
+            URIRef(
+                "http://www.wikidata.org/entity/Q117467246"
+            ),  #'animated television series'
+            URIRef("http://www.wikidata.org/entity/Q2484376"),  #'thriller film',
+            URIRef("http://www.wikidata.org/entity/Q20650540"),  #'anime film',
+            URIRef("http://www.wikidata.org/entity/Q13593818"),  #'film trilogy'
+            URIRef("http://www.wikidata.org/entity/Q17517379"),  #'animated short film'
+            URIRef("http://www.wikidata.org/entity/Q678345"),  #'prequel'
+            URIRef("http://www.wikidata.org/entity/Q1257444"),  #'film adaptation'
+            URIRef(
+                "http://www.wikidata.org/entity/Q52162262"
+            ),  #'film based on literature'
+            URIRef(
+                "http://www.wikidata.org/entity/Q118189123"
+            ),  #'animated film reboot'
+            URIRef("http://www.wikidata.org/entity/Q1259759"),  #'miniseries'
+            URIRef("http://www.wikidata.org/entity/Q506240"),  #'television film'
+        ]
+        return [
+            cls(uri=uri, knowledge_graph=knowledge_graph)
+            for uri in movie_instance_of_uris
+        ]
+
+    @classmethod
+    def instance_of_movie_properties(
+        cls, knowledge_graph: "KnowledgeGraph"
+    ) -> list["Entity"]:
+        movie_property_uris = [
+            URIRef("http://www.wikidata.org/entity/Q201658"),  # 'film genre'
+            URIRef("http://www.wikidata.org/entity/Q6256"),  # 'country'
+            URIRef("http://www.wikidata.org/entity/Q5"),  # 'human'
+            URIRef(
+                "http://www.wikidata.org/entity/Q1762059"
+            ),  # 'film production company'
+            URIRef(
+                "http://www.wikidata.org/entity/Q10689397"
+            ),  # 'television production company'
+            URIRef("http://www.wikidata.org/entity/Q375336"),  # 'film studio'
+            URIRef("http://www.wikidata.org/entity/Q19020"),  # 'Academy Awards'
+            URIRef("http://www.wikidata.org/entity/Q38033430"),  # 'class of award'
+            URIRef("http://www.wikidata.org/entity/Q618779"),  # 'award'
+            URIRef("http://www.wikidata.org/entity/Q4220917"),  # 'film award'
+            URIRef("http://www.wikidata.org/entity/Q1407225"),  # 'television award'
+            URIRef("http://www.wikidata.org/entity/Q1011547"),  # 'Golden Globe Award'
+            URIRef("http://www.wikidata.org/entity/Q559618"),  # 'fictional universe'
+            URIRef(
+                "http://www.wikidata.org/entity/Q23660208"
+            ),  # 'MPA classification category'
+        ]
+        return [
+            cls(uri=uri, knowledge_graph=knowledge_graph) for uri in movie_property_uris
+        ]

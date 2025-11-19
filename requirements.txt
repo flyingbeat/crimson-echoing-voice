@@ -4,3 +4,4 @@ rdflib
 sparqlwrapper
 scikit-learn
 thefuzz
+openai

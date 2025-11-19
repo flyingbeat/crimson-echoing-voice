@@ -1,10 +1,11 @@
 from collections import Counter
 
-from rdflib import RDFS
+from rdflib import RDFS, URIRef
 
 from Entity import Entity
 from KnowledgeGraph import KnowledgeGraph
 from Property import Property
+from Relation import Relation
 from SPARQLQuery import SPARQLQuery
 from Util import Util
 
@@ -12,11 +13,19 @@ from Util import Util
 class Recommendations:
 
     def __init__(
-        self, recommendations: list[Entity], knowledge_graph: "KnowledgeGraph"
+        self,
+        recommendations: list[Entity],
+        knowledge_graph: "KnowledgeGraph",
+        relevant_instance_of_entities: list[Entity] | None = None,
     ):
         self.__recommendations = recommendations
         self.__knowledge_graph = knowledge_graph
-        self.__relevant_instance_of_entities = [Entity.film(self.__knowledge_graph)]
+        if relevant_instance_of_entities is not None:
+            self.__relevant_instance_of_entities = relevant_instance_of_entities
+        else:
+            self.__relevant_instance_of_entities = Entity.instance_of_movies(
+                self.__knowledge_graph
+            )
 
     def __add__(self, other: "Recommendations") -> list[Entity]:
         combined = self.__recommendations + other.recommendations
@@ -51,22 +60,23 @@ class Recommendations:
     def from_entities(
         cls, entities: list[Entity], knowledge_graph: "KnowledgeGraph"
     ) -> "Recommendations":
-        similar = cls.__based_on_entities(entities, knowledge_graph)
-        print(similar)
         return Recommendations(
-            similar,
+            cls.__based_on_entities(entities, knowledge_graph),
             knowledge_graph=knowledge_graph,
         )
 
     @classmethod
     def from_properties(
-        cls, properties: list[str], knowledge_graph: "KnowledgeGraph"
+        cls,
+        properties: list[str],
+        knowledge_graph: "KnowledgeGraph",
+        relevant_instance_of_entities: list[Entity] = [],
     ) -> "Recommendations":
-        recommendations = Recommendations([], knowledge_graph=knowledge_graph)
-        recommendations.__recommendations = cls.__based_on_properties(
-            properties, knowledge_graph, recommendations.relevant_instance_of_entities
+        return cls(
+            cls.__based_on_properties(properties, knowledge_graph),
+            knowledge_graph=knowledge_graph,
+            relevant_instance_of_entities=relevant_instance_of_entities,
         )
-        return recommendations
 
     @staticmethod
     def __based_on_entities(
@@ -121,47 +131,31 @@ class Recommendations:
         knowledge_graph: "KnowledgeGraph",
         relevant_instance_of_entities: list[Entity] = [],
     ) -> list[Entity]:
+        condition_triplets = [
+            (None, Relation.instance_of(knowledge_graph), e)
+            for e in relevant_instance_of_entities
+        ]
+
         all_similar_entities = []
         for prop in properties:
             query = f"""
                 SELECT ?uri ?label WHERE {{
                     ?uri <{RDFS.label}> ?label .
                     ?uri ?relation <{prop.uri}> .
-                    ?uri <http://www.wikidata.org/prop/direct/P31> <http://www.wikidata.org/entity/Q11424> .
+                    {{ {SPARQLQuery.union_clauses(condition_triplets)} }}
                 }}
             """
-            query_result = SPARQLQuery(
-                knowledge_graph._KnowledgeGraph__graph, query
-            ).query_and_convert()
+            query_result = knowledge_graph.query(query)
             all_similar_entities.extend(
                 [
-                    Entity(
-                        uri["value"],
-                        label["value"],
-                        None,
-                        knowledge_graph,
-                    )
+                    Entity(URIRef(uri["value"]), knowledge_graph, label["value"])
                     for uri, label in zip(
                         query_result["uri"],
                         query_result["label"],
                     )
                 ]
             )
-            # entities_with_property = knowledge_graph.get_triplets(None, None, prop)
-            # if entities_with_property:
-            #     all_similar_entities.extend(
-            #         [
-            #             e
-            #             for e, _, _ in entities_with_property
-            #             if any(
-            #                 instance_of in relevant_instance_of_entities
-            #                 for instance_of in e.instance_of
-            #             )
-            #             or not relevant_instance_of_entities
-            #         ]
-            #     )
 
         entity_counts = Counter(all_similar_entities)
-        # print(entity_counts)
         sorted_recommendations = [entity for entity, _ in entity_counts.most_common(10)]
         return sorted_recommendations

@@ -1,6 +1,12 @@
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict, Union
 
 from SPARQLWrapper import SPARQLWrapper
+
+if TYPE_CHECKING:
+    from Entity import Entity
+    from Property import Property
+    from Relation import Relation
+
 
 BindingDict = TypedDict("BindingDict", {"type": str, "value": str})
 HeadDict = TypedDict("HeadDict", {"vars": list[str]})
@@ -32,3 +38,33 @@ class SPARQLQuery:
             var: [binding[var] for binding in response["results"]["bindings"]]
             for var in response["head"]["vars"]
         }
+
+    @staticmethod
+    def union_clauses(
+        triplets: list[
+            tuple[
+                Union["Entity", None], Union["Relation", None], Union["Property", None]
+            ]
+        ],
+        variable_names: list[str] = ["entity", "relation", "property"],
+    ) -> str:
+        union_clauses = []
+        for e, r, p in triplets:
+            if e is not None:
+                e_clause = f"<{e.uri}>"
+            else:
+                e_clause = f"?{variable_names[0]}"
+            if r is not None:
+                r_clause = f"<{r.uri}>"
+            else:
+                r_clause = f"?{variable_names[1]}"
+            if p is not None:
+                if isinstance(p, str):
+                    p_clause = f'"{p}"'
+                else:
+                    p_clause = f"<{p.uri}>"
+            else:
+                p_clause = f"?{variable_names[2]}"
+            union_clauses.append(f"{e_clause} {r_clause} {p_clause} .")
+
+        return " UNION ".join(f"{{{clause}}}" for clause in union_clauses)

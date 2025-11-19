@@ -1,13 +1,11 @@
 import random
 import time
-from collections import Counter, defaultdict
 
 from speakeasypy import Chatroom, EventType, Speakeasy
 
 from Entity import Entity
-
-# from handlers.llm_handler import LLMHandler
 from KnowledgeGraph import KnowledgeGraph
+from LargeLanguageModel import LargeLanguageModel
 from Message import Message
 from Property import Property
 from Recommendation import Recommendations
@@ -19,7 +17,10 @@ class Agent:
         self.speakeasy = speakeasy
         self.sparql_endpoint = sparql_endpoint
         self.__knowledge_graph = KnowledgeGraph(sparql_endpoint)
-        # self.llm_handler = LLMHandler()
+        print("Loading entities...")
+        self.__knowledge_graph.entities  # Preload entities
+        print("Entities loaded.")
+        self.__llm = LargeLanguageModel()
 
         self.speakeasy.login()
         self.speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
@@ -45,15 +46,19 @@ class Agent:
         room.post_messages(random.choice(self.thinking_messages))
 
         message = Message(content, self.__knowledge_graph)
+
         e_start = time.time()
         entities_in_message = message.entities
         e_end = time.time()
         print(f"entities time: {e_end - e_start}")
-        start = time.time()
+
+        p_start = time.time()
         properties_in_message = message.properties
-        end = time.time()
-        print(f"time: {end-start}")
+        p_end = time.time()
+        print(f"properties time: {p_end - p_start}")
+
         print(entities_in_message, properties_in_message)
+
         recommendations = self.get_recommendations(
             entities=entities_in_message, properties=properties_in_message
         )
@@ -61,24 +66,27 @@ class Agent:
         if recommendations:
             recommendation_labels = [entity.label for entity in recommendations]
 
+            # prompt = (
+            #     f"A user has requested movies with certain properties, and based on this, "
+            #     f"Please provide a brief and engaging explanation for why these are good recommendations. "
+            # )
+            # context = (
+            #     f"The user requested movies related to: {', '.join([entity.label for entity in entities_in_message]) or ', '.join([p.label for p in properties_in_message])}. "
+            #     f"The recommended movies are: {', '.join(recommendation_labels)}."
+            # )
+
+            # try:
+            #     llm_response = self.llm_handler.prompt(prompt, context=context)
+            #     room.post_messages(llm_response)
+            # except Exception as e:
+            #     room.post_messages(
+            #         f"⚠️ Oops, something went wrong while generating the explanation: {e}"
+            #     )
             initial_response = (
                 f"{random.choice(self.generic_answers)}\n- "
                 + "\n- ".join(recommendation_labels)
             )
             room.post_messages(initial_response)
-
-            # prompt = (
-            #     f"A user has requested movies with certain properties, and based on this, "
-            #     f"I have recommended the following movies: {', '.join(recommendation_labels)}. "
-            #     f"Please provide a brief and engaging explanation for why these are good recommendations. "
-            #     f"You can highlight shared genres, directors, actors, or themes that match the user's request."
-            # )
-
-            # try:
-            #     llm_response = self.llm_handler.prompt(prompt)
-            #     room.post_messages(llm_response)
-            # except Exception as e:
-            #     room.post_messages(f"⚠️ Oops, something went wrong while generating the explanation: {e}")
         else:
             room.post_messages(
                 "I couldn't find any recommendations based on your input. Please try with different movies or properties."
@@ -89,15 +97,15 @@ class Agent:
         entities: list[Entity],
         properties: list[Property],
     ) -> list[Entity]:
-        from_entities = []
-        from_properties = []
         if entities:
             return Recommendations.from_entities(
                 entities, knowledge_graph=self.__knowledge_graph
             )
         else:
             return Recommendations.from_properties(
-                properties, knowledge_graph=self.__knowledge_graph
+                properties,
+                knowledge_graph=self.__knowledge_graph,
+                relevant_instance_of_entities=Entity.instance_of_movies(
+                    self.__knowledge_graph
+                ),
             )
-
-        return set(from_entities + from_properties)

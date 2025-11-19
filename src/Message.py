@@ -55,7 +55,9 @@ class Message:
         self.__entities_with_scores = None
         self.__relations_with_scores = None
         self.__knowledge_graph = knowledge_graph
-        self.__relevant_instance_of_entities = Entity.movies(self.__knowledge_graph)
+        self.__relevant_instance_of_entities = Entity.instance_of_movies(
+            self.__knowledge_graph
+        )
 
     @property
     def content(self) -> str:

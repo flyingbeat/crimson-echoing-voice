@@ -49,7 +49,7 @@ class PromptTemplate:
         }
 
 
-class LLMHandler:
+class LargeLanguageModel:
 
     def __init__(
         self,
