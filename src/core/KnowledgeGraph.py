@@ -52,21 +52,22 @@ class KnowledgeGraph:
         return SPARQLQuery(self.__graph, query_string).query_and_convert()
 
     @property
-    def relations(self) -> list[URIRef]:
+    def relations(self) -> list[Relation]:
         if self.__relations is None:
             self.__relations = self.__get_relations()
         return self.__relations
 
-    def __get_relations(self) -> list[URIRef]:
+    def __get_relations(self) -> list[Relation]:
         query = f"""
-            SELECT ?uri WHERE {{
+            SELECT ?uri ?label WHERE {{
                 ?uri <{RDFS.label}> ?label .
                 FILTER(STRSTARTS(STR(?uri), "{WDT}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
         return [
-            Relation.from_binding(relation, self) for relation in query_result["uri"]
+            Relation(uri["value"], self, label["value"])
+            for uri, label in zip(query_result["uri"], query_result["label"])
         ]
 
     @property

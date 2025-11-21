@@ -55,6 +55,7 @@ class Message:
         self.__relevant_instance_of_entities = Entity.instance_of_movies(
             self.__knowledge_graph
         )
+        self.__fuzzy_threshold = 85
 
     @property
     def content(self) -> str:
@@ -66,9 +67,9 @@ class Message:
 
     @property
     def relations(self) -> list[Relation]:
-        if self.__relations_with_scores is None:
-            self.__relations_with_scores = self.__get_relations_with_scores()
-        return [relation for relation, _ in self.__relations_with_scores]
+        if self.relations_with_scores is not None:
+            return [relation for relation, _ in self.relations_with_scores]
+        return []
 
     @property
     def relations_with_scores(self) -> list[tuple[Relation, int]]:
@@ -89,16 +90,17 @@ class Message:
             rel_label_lower = relation.label.lower()
             if rel_label_lower in query_lower:
                 score = 100 + len(rel_label_lower)
-                matches.append((relation, score, relation.label))
+                matches.append((relation, score))
             elif rel_label_lower in normalized_query:
                 score = 98 + len(rel_label_lower)
-                matches.append((relation, score, relation.label))
+                matches.append((relation, score))
             else:
                 fuzzy_score = fuzz.partial_ratio(rel_label_lower, query_lower)
 
-                if fuzzy_score > self.fuzzy_threshold:
+                if fuzzy_score > self.__fuzzy_threshold:
                     adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
-                    matches.append((relation, int(adjusted_score), relation.label))
+                    matches.append((relation, int(adjusted_score)))
+        return matches
 
     def __normalize_for_relations(self) -> str:
         normalized = self.content.lower()
@@ -112,7 +114,10 @@ class Message:
                     normalized = normalized.replace(synonym_lower, canonical.lower())
                 else:
                     if " " in synonym_lower:
-                        if fuzz.partial_ratio(synonym_lower, normalized) > 85:
+                        if (
+                            fuzz.partial_ratio(synonym_lower, normalized)
+                            > self.__fuzzy_threshold
+                        ):
                             best_match = process.extractOne(
                                 synonym_lower,
                                 [
@@ -121,13 +126,13 @@ class Message:
                                 ],
                                 scorer=fuzz.partial_ratio,
                             )
-                            if best_match and best_match[1] > 85:
+                            if best_match and best_match[1] > self.__fuzzy_threshold:
                                 normalized = normalized.replace(
                                     synonym_lower, canonical.lower()
                                 )
                     else:
                         for word in words:
-                            if fuzz.ratio(synonym_lower, word) > 85:
+                            if fuzz.ratio(synonym_lower, word) > self.__fuzzy_threshold:
                                 normalized = normalized.replace(word, canonical.lower())
                                 break
 

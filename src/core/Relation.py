@@ -11,9 +11,11 @@ SCHEMA = Namespace("http://schema.org/")
 
 
 class Relation:
-    def __init__(self, uri: URIRef, knowledge_graph: "KnowledgeGraph"):
+    def __init__(
+        self, uri: URIRef, knowledge_graph: "KnowledgeGraph", label: str | None = None
+    ):
         self.__uri = uri
-        self.__label: str | None = None
+        self.__label = label
         self.__knowledge_graph = knowledge_graph
 
     def __repr__(self):

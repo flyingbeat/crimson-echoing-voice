@@ -31,6 +31,9 @@ class Entity:
     def __repr__(self):
         return str(self.uri)
 
+    def __str__(self):
+        return self.label if self.label else str(self.uri)
+
     def __hash__(self):
         return hash(self.__uri)
 
