@@ -22,11 +22,10 @@ class Entity:
         self.__uri = uri
         self.__label: str | None = label
         self.__knowledge_graph = knowledge_graph
+        self.__instance_of = (
+            Entity(instance_of, knowledge_graph) if instance_of else None
+        )
         self.__properties: dict[Relation, list["Property"]] = {}
-        if instance_of:
-            self.__properties[Relation.instance_of(knowledge_graph)] = [
-                Entity(instance_of, knowledge_graph)
-            ]
 
     def __repr__(self):
         return str(self.uri)
@@ -44,13 +43,12 @@ class Entity:
 
     @property
     def instance_of(self) -> list["Entity"]:
+        if self.__instance_of:
+            return self.__instance_of
         P31 = Relation.instance_of(self.__knowledge_graph)
-        if self.__properties and (instance_of := self.__properties.get(P31)):
-            return instance_of
         triplets = self.__knowledge_graph.get_triplets(entity=self, relation=P31)
-        instance_of = [p for _, _, p in triplets]
-        self.__properties[P31] = instance_of
-        return instance_of
+        self.__instance_of = [p for _, _, p in triplets]
+        return self.__instance_of
 
     @property
     def uri(self) -> URIRef:
