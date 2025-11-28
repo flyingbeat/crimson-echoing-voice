@@ -117,7 +117,7 @@ class Recommendations:
 
         movie_counts = Counter(all_similar_entities)
 
-        input_entity_uris = {entity.uri for entity in entities}
+        input_entity_uris = {str(entity.uri) for entity in entities}
         sorted_recommendations = [
             movie
             for movie, _ in movie_counts.most_common(10)
