@@ -108,7 +108,12 @@ class KnowledgeGraph:
                 )
             else:
                 entities[entity_uri].instance_of.append(entity_instance_of)
-        return list(entities.values())
+
+        return sorted(
+            list(entities.values()),
+            key=lambda e: len(e.label) if e.label else 0,
+            reverse=True,
+        )
 
     def get_triplets(
         self,

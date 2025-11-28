@@ -172,11 +172,7 @@ class Message:
         remaining_query = self.content.lower()
         matches = []
 
-        for entity in sorted(
-            knowledge_graph_entities,
-            key=lambda e: len(e.label) if e.label else 0,
-            reverse=True,
-        ):
+        for entity in knowledge_graph_entities:
             if not entity.label:
                 continue
 
