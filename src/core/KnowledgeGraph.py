@@ -77,35 +77,38 @@ class KnowledgeGraph:
         return self.__entities
 
     def __get_relevant_entities_with_labels(self) -> list[Entity]:
-        condition_triplets = [
-            (None, Relation.instance_of(self), e) for e in self.__relevant_instance_of
-        ]
-
         query = f"""
             SELECT ?uri ?label ?instance_of
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
                 ?uri <http://www.wikidata.org/prop/direct/P31> ?instance_of .
-                {{ {SPARQLQuery.union_clauses(condition_triplets, ["uri"])} }}
+                FILTER(?instance_of IN ({', '.join(f'<{e.uri}>' for e in self.__relevant_instance_of)})) . 
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
-        return [
-            Entity(
-                URIRef(uri["value"]),
-                self,
-                label["value"],
-                (
-                    URIRef(instance_of["value"])
-                    if instance_of["type"] == "uri"
-                    else instance_of
-                ),
+        entities: dict[str, Entity] = {}
+        for uri, label, instance_of in zip(
+            query_result["uri"], query_result["label"], query_result["instance_of"]
+        ):
+            entity_uri = uri["value"]
+            entity_label = label["value"]
+            entity_instance_of = (
+                URIRef(instance_of["value"])
+                if instance_of["type"] == "uri"
+                else str(instance_of)
             )
-            for uri, label, instance_of in zip(
-                query_result["uri"], query_result["label"], query_result["instance_of"]
-            )
-        ]
+
+            if entity_uri not in entities:
+                entities[entity_uri] = Entity(
+                    URIRef(entity_uri),
+                    self,
+                    entity_label,
+                    [entity_instance_of],
+                )
+            else:
+                entities[entity_uri].instance_of.append(entity_instance_of)
+        return list(entities.values())
 
     def get_triplets(
         self,

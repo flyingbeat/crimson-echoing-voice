@@ -17,13 +17,13 @@ class Entity:
         uri: URIRef,
         knowledge_graph: "KnowledgeGraph",
         label: str | None = None,
-        instance_of: URIRef | None = None,
+        instance_of: list[URIRef] | None = None,
     ):
         self.__uri = uri
         self.__label: str | None = label
         self.__knowledge_graph = knowledge_graph
         self.__instance_of = (
-            Entity(instance_of, knowledge_graph) if instance_of else None
+            [Entity(i, knowledge_graph) for i in instance_of] if instance_of else []
         )
         self.__properties: dict[Relation, list["Property"]] = {}
 

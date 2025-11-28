@@ -48,11 +48,15 @@ class Agentv3:
             "You might find these movies interesting:",
             "Here are some recommendations based on your input:",
         ]
+        self.answers_cache = {}
 
     def run(self):
         self.speakeasy.start_listening()
 
     def on_new_message(self, content: str, room: Chatroom):
+        if content in self.answers_cache:
+            room.post_messages(self.answers_cache[content])
+            return
         room.post_messages(choice(self.thinking_messages))
 
         message = Message(content, self.__knowledge_graph)
@@ -87,12 +91,15 @@ class Agentv3:
         )
 
         if recommendations:
-            recommendation_labels = [entity.label for entity in recommendations]
+            recommendation_labels = [
+                entity.label for entity in recommendations if entity.label
+            ]
             print(f"Recommendations: {recommendation_labels}")
-            initial_response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
+            response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
                 recommendation_labels
             )
-            room.post_messages(initial_response)
+            room.post_messages(response)
+            self.answers_cache[content] = response
         else:
             room.post_messages(
                 "I couldn't find any recommendations based on your input. Please try with different movies or properties."
