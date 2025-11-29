@@ -1,7 +1,7 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
-from rdflib import URIRef
+from rdflib import Namespace, URIRef
 
 from utils import BindingDict
 
@@ -18,6 +18,7 @@ class Entity:
         knowledge_graph: "KnowledgeGraph",
         label: str | None = None,
         instance_of: list[URIRef] | None = None,
+        imdb_id: str | None = None,
     ):
         self.__uri = uri
         self.__label: str | None = label
@@ -25,6 +26,7 @@ class Entity:
         self.__instance_of = (
             [Entity(i, knowledge_graph) for i in instance_of] if instance_of else []
         )
+        self.__imdb_id = imdb_id
         self.__properties: dict[Relation, list["Property"]] = {}
 
     def __repr__(self):
@@ -49,6 +51,29 @@ class Entity:
         triplets = self.__knowledge_graph.get_triplets(entity=self, relation=P31)
         self.__instance_of = [p for _, _, p in triplets]
         return self.__instance_of
+
+    @property
+    def imdb(self) -> Union["Entity", None]:
+        if not self.__imdb_id:
+            P345 = Relation.imdb_id(self.__knowledge_graph)
+            triplets = self.__knowledge_graph.get_triplets(entity=self, relation=P345)
+            if triplets:
+                _, _, p = triplets[0]
+                self.__imdb_id = str(p)
+        if self.__imdb_id and self.__imdb_id.startswith("nm"):
+            uri = URIRef(f"https://www.imdb.com/name/{self.__imdb_id}")
+
+        if self.__imdb_id and self.__imdb_id.startswith("tt"):
+            uri = URIRef(f"https://www.imdb.com/title/{self.__imdb_id}")
+
+        return Entity(uri, self.__knowledge_graph) if self.__imdb_id else None
+
+    @property
+    def images(self) -> list["Entity"]:
+        if self.uri.startswith("https://www.imdb.com/"):
+            return self.properties
+        if self.imdb:
+            return self.imdb.properties
 
     @property
     def uri(self) -> URIRef:

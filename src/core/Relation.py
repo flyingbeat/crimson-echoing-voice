@@ -36,6 +36,13 @@ class Relation:
             knowledge_graph=knowledge_graph,
         )
 
+    @classmethod
+    def imdb_id(cls, knowledge_graph: "KnowledgeGraph") -> "Relation":
+        return cls(
+            uri=URIRef("http://www.wikidata.org/prop/direct/P345"),
+            knowledge_graph=knowledge_graph,
+        )
+
     @property
     def uri(self) -> URIRef:
         return self.__uri

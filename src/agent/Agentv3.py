@@ -70,7 +70,10 @@ class Agentv3:
         properties_in_message = message.properties
         p_end = time.time()
         print(f"properties time: {p_end - p_start}")
-
+        print(properties_in_message[0].images)
+        room.post_messages(
+            properties_in_message[0].images["http://schema.org/Profile"][0]
+        )
         r_start = time.time()
         relations_in_message = message.relations
         r_end = time.time()
@@ -78,14 +81,14 @@ class Agentv3:
 
         print(entities_in_message, properties_in_message)
 
-        main_entity = entities_in_message[0] if entities_in_message else None
-        main_relation = relations_in_message[0] if relations_in_message else None
+        # main_entity = entities_in_message[0] if entities_in_message else None
+        # main_relation = relations_in_message[0] if relations_in_message else None
 
-        factual_answers = FactualAnswers(
-            main_entity, main_relation, self.__knowledge_graph
-        )
-        room.post_messages("and ".join(factual_answers.answers))
-        return
+        # factual_answers = FactualAnswers(
+        #     main_entity, main_relation, self.__knowledge_graph
+        # )
+        # room.post_messages("and ".join(factual_answers.answers))
+        # return
         recommendations = self.get_recommendations(
             entities=entities_in_message, properties=properties_in_message
         )

@@ -77,19 +77,25 @@ class KnowledgeGraph:
         return self.__entities
 
     def __get_relevant_entities_with_labels(self) -> list[Entity]:
+        P345 = Relation.imdb_id(self)
+        P31 = Relation.instance_of(self)
         query = f"""
-            SELECT ?uri ?label ?instance_of
+            SELECT ?uri ?label ?instance_of ?imdb_id
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
-                ?uri <http://www.wikidata.org/prop/direct/P31> ?instance_of .
+                ?uri <{P31.uri}> ?instance_of .
+                ?uri <{P345.uri}> ?imdb_id .
                 FILTER(?instance_of IN ({', '.join(f'<{e.uri}>' for e in self.__relevant_instance_of)})) . 
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
         entities: dict[str, Entity] = {}
-        for uri, label, instance_of in zip(
-            query_result["uri"], query_result["label"], query_result["instance_of"]
+        for uri, label, instance_of, imdb_id in zip(
+            query_result["uri"],
+            query_result["label"],
+            query_result["instance_of"],
+            query_result["imdb_id"],
         ):
             entity_uri = uri["value"]
             entity_label = label["value"]
@@ -98,13 +104,14 @@ class KnowledgeGraph:
                 if instance_of["type"] == "uri"
                 else str(instance_of)
             )
-
+            entity_imdb_id = imdb_id["value"] if imdb_id else None
             if entity_uri not in entities:
                 entities[entity_uri] = Entity(
                     URIRef(entity_uri),
                     self,
                     entity_label,
                     [entity_instance_of],
+                    entity_imdb_id,
                 )
             else:
                 entities[entity_uri].instance_of.append(entity_instance_of)

@@ -150,7 +150,7 @@ class Message:
         ]
 
     @property
-    def properties(self) -> list[str]:
+    def properties(self) -> list[Entity]:
         return [
             entity
             for entity, _ in self.entities_with_scores
