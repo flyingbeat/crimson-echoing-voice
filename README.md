@@ -59,9 +59,12 @@ pip install -r requirements.txt
 # Install external dependencies
 ./scripts/download_dependencies.sh
 
+# create graph data for multimedia queries
+python ./scripts/create_image_graph.py /space_mounts/atai-hs25/dataset/additional/images.json -o ./services/images.nt
+
 # Create TDB2 database (only done once or when graph changes)
 export JENA_HOME="./services/apache-jena-5.6.0" # path to apache jena
-./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database /space_mounts/atai-hs25/dataset/graph.nt # local path to graph
+./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database /space_mounts/atai-hs25/dataset/graph.nt ./services/images.nt # local path to two graphs
 
 # start fuseki-server and llama-server
 ./scripts/start_services.sh
