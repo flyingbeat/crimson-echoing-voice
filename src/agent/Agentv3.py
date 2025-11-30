@@ -141,7 +141,12 @@ class Agentv3:
             entities: list[Entity],
             properties: list[Property],
     ) -> None:
-        for key, image_list in properties[0].images.items():
-            print(f"{key}: {image_list}")
-            return image_list[0]
+        if properties:
+            for key, image_list in properties[0].images.items():
+                if image_list:
+                    return image_list[0]
+        if entities:
+            for key, image_list in entities[0].images.items():
+                if image_list:
+                    return image_list[0]
         return None
