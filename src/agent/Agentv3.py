@@ -69,6 +69,13 @@ class Agentv3:
         multimedia_answers = self.get_multimedia_answers(
             entities=entities_in_message, properties=properties_in_message
         )
+        uri = str(multimedia_answers.uri)
+
+        formatted = "image:" + "/".join(
+            uri.rstrip("/").split("/")[-2:]
+        ).rsplit(".", 1)[0]
+
+        room.post_messages(formatted)
         return
 
         factual_answers = self.get_factual_answers(
@@ -136,4 +143,5 @@ class Agentv3:
     ) -> None:
         for key, image_list in properties[0].images.items():
             print(f"{key}: {image_list}")
+            return image_list[0]
         return None
