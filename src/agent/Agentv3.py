@@ -61,39 +61,27 @@ class Agentv3:
 
         message = Message(content, self.__knowledge_graph)
 
-        e_start = time.time()
         entities_in_message = message.entities
-        e_end = time.time()
-        print(f"entities time: {e_end - e_start}")
-
-        p_start = time.time()
         properties_in_message = message.properties
-        p_end = time.time()
-        print(f"properties time: {p_end - p_start}")
-        print(properties_in_message[0].images)
-        room.post_messages(
-            properties_in_message[0].images["http://schema.org/Profile"][0]
-        )
-        r_start = time.time()
-        relations_in_message = message.relations
-        r_end = time.time()
-        print(f"relations time: {r_end - r_start}")
-
+        # relations_in_message = message.relations
         print(entities_in_message, properties_in_message)
 
-        # main_entity = entities_in_message[0] if entities_in_message else None
-        # main_relation = relations_in_message[0] if relations_in_message else None
+        multimedia_answers = self.get_multimedia_answers(
+            entities=entities_in_message, properties=properties_in_message
+        )
+        return
 
-        # factual_answers = FactualAnswers(
-        #     main_entity, main_relation, self.__knowledge_graph
-        # )
-        # room.post_messages("and ".join(factual_answers.answers))
-        # return
+        factual_answers = self.get_factual_answers(
+            entities=entities_in_message, properties=properties_in_message
+        )
+
         recommendations = self.get_recommendations(
             entities=entities_in_message, properties=properties_in_message
         )
 
-        if recommendations:
+        if factual_answers:
+            room.post_messages("and ".join(factual_answers.answers))
+        elif recommendations:
             recommendation_labels = [
                 entity.label for entity in recommendations if entity.label
             ]
@@ -112,12 +100,12 @@ class Agentv3:
         self,
         entities: list[Entity],
         properties: list[Property],
-    ) -> list[Entity]:
+    ) -> list[Entity] | None:
         if entities:
             return Recommendations.from_entities(
                 entities, knowledge_graph=self.__knowledge_graph
             )
-        else:
+        elif properties:
             return Recommendations.from_properties(
                 properties,
                 knowledge_graph=self.__knowledge_graph,
@@ -125,6 +113,26 @@ class Agentv3:
                     self.__knowledge_graph
                 ),
             )
+        else:
+            return None
 
-    def get_factual_answers(self, entity: Entity, relation: Relation) -> FactualAnswers:
-        return FactualAnswers(entity, relation)
+    def get_factual_answers(
+        self,
+        entities: list[Entity],
+        properties: list[Property],
+    ) -> FactualAnswers | None:
+        if not entities or not properties:
+            return None
+        return FactualAnswers(
+            entity=entities[0],
+            property=properties[0],
+            knowledge_graph=self.__knowledge_graph
+        )
+
+    def get_multimedia_answers(
+            self,
+            entities: list[Entity],
+            properties: list[Property],
+    ) -> None:
+        print(properties[0].images["http://schema.org/Profile"])
+        return None
