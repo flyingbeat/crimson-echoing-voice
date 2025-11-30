@@ -147,6 +147,6 @@ class Agentv3:
                     return image_list[0]
         if entities:
             for key, image_list in entities[0].images.items():
-                if image_list:
+                if str(key) == "http://schema.org/Backdrop" and image_list:
                     return image_list[0]
         return None
