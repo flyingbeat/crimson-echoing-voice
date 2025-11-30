@@ -63,8 +63,8 @@ class Agentv3:
 
         entities_in_message = message.entities
         properties_in_message = message.properties
-        # relations_in_message = message.relations
-        print(entities_in_message, properties_in_message)
+        relations_in_message = message.relations
+        print(entities_in_message, properties_in_message, relations_in_message)
 
         multimedia_answers = self.get_multimedia_answers(
             entities=entities_in_message, properties=properties_in_message
@@ -72,7 +72,7 @@ class Agentv3:
         return
 
         factual_answers = self.get_factual_answers(
-            entities=entities_in_message, properties=properties_in_message
+            entities=entities_in_message, relations=relations_in_message
         )
 
         recommendations = self.get_recommendations(
@@ -100,7 +100,7 @@ class Agentv3:
         self,
         entities: list[Entity],
         properties: list[Property],
-    ) -> list[Entity] | None:
+    ) -> Recommendations | None:
         if entities:
             return Recommendations.from_entities(
                 entities, knowledge_graph=self.__knowledge_graph
@@ -119,13 +119,13 @@ class Agentv3:
     def get_factual_answers(
         self,
         entities: list[Entity],
-        properties: list[Property],
+        relations: list[Relation],
     ) -> FactualAnswers | None:
-        if not entities or not properties:
+        if not entities or not relations:
             return None
         return FactualAnswers(
             entity=entities[0],
-            property=properties[0],
+            relation=relations[0],
             knowledge_graph=self.__knowledge_graph
         )
 
@@ -134,5 +134,6 @@ class Agentv3:
             entities: list[Entity],
             properties: list[Property],
     ) -> None:
-        print(properties[0].images["http://schema.org/Profile"])
+        for key, image_list in properties[0].images.items():
+            print(f"{key}: {image_list}")
         return None
