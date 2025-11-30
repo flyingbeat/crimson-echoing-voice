@@ -57,51 +57,68 @@ class Agentv3:
         if content in self.answers_cache:
             room.post_messages(self.answers_cache[content])
             return
+
         room.post_messages(choice(self.thinking_messages))
 
         message = Message(content, self.__knowledge_graph)
 
+        question_type = message.question_type
+
         entities_in_message = message.entities
         properties_in_message = message.properties
         relations_in_message = message.relations
-        print(entities_in_message, properties_in_message, relations_in_message)
 
-        multimedia_answers = self.get_multimedia_answers(
-            entities=entities_in_message, properties=properties_in_message
-        )
-        uri = str(multimedia_answers.uri)
+        print(f"Type: {question_type}")
+        print(f"Entities: {entities_in_message}")
+        print(f"Relations: {relations_in_message}")
+        print(f"Properties: {properties_in_message}")
 
-        formatted = "image:" + "/".join(
-            uri.rstrip("/").split("/")[-2:]
-        ).rsplit(".", 1)[0]
+        if question_type == "multimedia":
+            image_uri = self.get_multimedia_answers(
+                entities=entities_in_message,
+                properties=properties_in_message
+            ).uri
 
-        room.post_messages(formatted)
-        return
+            if image_uri:
+                uri = str(image_uri)
+                formatted = "image:" + "/".join(
+                    uri.rstrip("/").split("/")[-2:]
+                ).rsplit(".", 1)[0]
+                room.post_messages(formatted)
+            else:
+                room.post_messages("Sorry, I couldn't find an image for that.")
+            return
 
-        factual_answers = self.get_factual_answers(
-            entities=entities_in_message, relations=relations_in_message
-        )
-
-        recommendations = self.get_recommendations(
-            entities=entities_in_message, properties=properties_in_message
-        )
-
-        if factual_answers:
-            room.post_messages("and ".join(factual_answers.answers))
-        elif recommendations:
-            recommendation_labels = [
-                entity.label for entity in recommendations if entity.label
-            ]
-            print(f"Recommendations: {recommendation_labels}")
-            response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
-                recommendation_labels
+        elif question_type == "recommendation":
+            recommendations = self.get_recommendations(
+                entities=entities_in_message,
+                properties=properties_in_message
             )
-            room.post_messages(response)
-            self.answers_cache[content] = response
-        else:
-            room.post_messages(
-                "I couldn't find any recommendations based on your input. Please try with different movies or properties."
+
+            if recommendations:
+                recommendation_labels = [
+                    entity.label for entity in recommendations if entity.label
+                ]
+                response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
+                    recommendation_labels
+                )
+                room.post_messages(response)
+                self.answers_cache[content] = response
+            else:
+                room.post_messages("I couldn't find any recommendations based on your input.")
+            return
+
+        elif question_type == "one_hop":
+            factual_answers = self.get_factual_answers(
+                entities=entities_in_message,
+                relations=relations_in_message
             )
+
+            if factual_answers and factual_answers.answers:
+                room.post_messages("and ".join(factual_answers.answers))
+            else:
+                room.post_messages("I'm not sure about the answer to that specific question.")
+            return
 
     def get_recommendations(
         self,
