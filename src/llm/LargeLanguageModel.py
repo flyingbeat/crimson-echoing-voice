@@ -21,7 +21,7 @@ class PromptTemplate:
     5) never use asterix * or underscores _
     """
     context: str = ""
-    user_prefix: str = ""#"Given this information, please answer the question: "
+    user_prefix: str = "Given this information, please answer the question: "
     user_suffix: str = ""
     assistant_prefix: Optional[str] = None
 

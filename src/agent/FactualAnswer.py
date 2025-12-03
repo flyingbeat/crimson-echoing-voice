@@ -1,6 +1,5 @@
-from random import choice
-
 from core import Entity, Relation
+from llm import LargeLanguageModel
 
 from .Answer import Answer
 
@@ -30,16 +29,12 @@ class FactualAnswer(Answer):
         answers = self.answer()
         if not answers:
             return "I'm not sure about the answer to that specific question."
-        factual_answer_intros = [
-            "The answer to your question is:",
-            "According to my data:",
-            "Here is the information you asked for:",
-            "I found this information:",
-            "The answer is:",
-        ]
-        answer_intro = choice(factual_answer_intros)
-        answer_text = " and ".join(answers)
-        return f"{answer_intro} {answer_text}"
+        llm = LargeLanguageModel()
+        answer = llm.prompt(
+            self._message.content, context=" and ".join(answers), max_tokens=150
+        )
+
+        return answer
 
     def __get_entity_relation(self) -> tuple[Entity | None, Relation | None]:
         entities = self._message.entities
