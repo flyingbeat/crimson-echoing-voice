@@ -16,4 +16,5 @@ __all__ = [
     "WDT",
     "DDIS",
     "SCHEMA",
+    "SKOS",
 ]

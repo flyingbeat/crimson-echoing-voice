@@ -15,18 +15,18 @@ services:
     stdin_open: true
     tty: true
     # Override the default command to use tmux for better session management
-    command: >
-      /bin/bash -c "
-      echo 'Activating python virtual environment...';
-      source /app/.venv/bin/activate;
-      echo 'Starting services in tmux sessions...';
-      bash ./scripts/start_services.sh;
-      echo 'Waiting for services to initialize...';
-      sleep 15;
-      echo 'Starting Python application...';
-      while true; do
-        python src/main.py;
-        echo 'Application stopped. Restarting in 5 seconds...';
-        sleep 5;
-      done
-      "
+    # command: >
+    #   /bin/bash -c "
+    #   echo 'Activating python virtual environment...';
+    #   source /app/.venv/bin/activate;
+    #   echo 'Starting services in tmux sessions...';
+    #   bash ./scripts/start_services.sh;
+    #   echo 'Waiting for services to initialize...';
+    #   sleep 15;
+    #   echo 'Starting Python application...';
+    #   while true; do
+    #     python src/main.py;
+    #     echo 'Application stopped. Restarting in 5 seconds...';
+    #     sleep 5;
+    #   done
+    #   "

@@ -4,7 +4,7 @@ from SPARQLWrapper import JSON, SPARQLWrapper
 from utils import BindingDict, SPARQLQuery
 
 from .Entity import Entity
-from .Namespaces import SCHEMA, WD, WDT
+from .Namespaces import SCHEMA, SKOS, WD, WDT
 from .Property import Property
 from .Relation import Relation
 
@@ -41,16 +41,34 @@ class KnowledgeGraph:
 
     def __get_relations(self) -> list[Relation]:
         query = f"""
-            SELECT ?uri ?label WHERE {{
+            SELECT ?uri ?label ?alt_label WHERE {{
                 ?uri <{RDFS.label}> ?label .
+                OPTIONAL {{ ?uri <{SKOS.altLabel}> ?alt_label . }}
                 FILTER(STRSTARTS(STR(?uri), "{WDT}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
-        return [
-            Relation(uri["value"], self, label["value"])
-            for uri, label in zip(query_result["uri"], query_result["label"])
-        ]
+        relations = {}
+        for uri, label, alt_label in zip(
+            query_result["uri"], query_result["label"], query_result["alt_label"]
+        ):
+            relation_uri = uri["value"]
+            relation_label = label["value"]
+            relation_alt_labels = alt_label["value"] if alt_label else None
+            if relation_uri not in relations:
+                relations[relation_uri] = Relation(
+                    URIRef(relation_uri),
+                    self,
+                    relation_label,
+                    [relation_alt_labels] if relation_alt_labels else [],
+                )
+            else:
+                if (
+                    relation_alt_labels
+                    and relation_alt_labels not in relations[relation_uri].alt_labels
+                ):
+                    relations[relation_uri].alt_labels.append(relation_alt_labels)
+        return list(relations.values())
 
     @property
     def entities(self) -> list[Entity]:
@@ -62,10 +80,11 @@ class KnowledgeGraph:
         P345 = Relation.imdb_id(self)
         P31 = Relation.instance_of(self)
         query = f"""
-            SELECT ?uri ?label ?instance_of ?imdb_id
+            SELECT ?uri ?label ?instance_of ?alt_label ?imdb_id
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
                 ?uri <{P31.uri}> ?instance_of .
+                OPTIONAL {{ ?uri <{SKOS.altLabel}> ?alt_label . }}
                 OPTIONAL {{ ?uri <{P345.uri}> ?imdb_id . }}
                 FILTER(?instance_of IN ({', '.join(f'<{e.uri}>' for e in self.__relevant_instance_of)})) . 
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
@@ -73,10 +92,11 @@ class KnowledgeGraph:
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
         entities: dict[str, Entity] = {}
-        for uri, label, instance_of, imdb_id in zip(
+        for uri, label, instance_of, alt_label, imdb_id in zip(
             query_result["uri"],
             query_result["label"],
             query_result["instance_of"],
+            query_result["alt_label"],
             query_result["imdb_id"],
         ):
             entity_uri = uri["value"]
@@ -86,6 +106,7 @@ class KnowledgeGraph:
                 if instance_of["type"] == "uri"
                 else str(instance_of)
             )
+            entity_alt_labels = alt_label["value"] if alt_label else None
             entity_imdb_id = imdb_id["value"] if imdb_id else None
             if entity_uri not in entities:
                 entities[entity_uri] = Entity(
@@ -93,10 +114,18 @@ class KnowledgeGraph:
                     self,
                     entity_label,
                     [entity_instance_of],
+                    [entity_alt_labels] if entity_alt_labels else [],
                     entity_imdb_id,
                 )
             else:
-                entities[entity_uri].instance_of.append(entity_instance_of)
+                if entity_instance_of not in entities[entity_uri].instance_of:
+                    entities[entity_uri].instance_of.append(entity_instance_of)
+
+                if (
+                    entity_alt_labels
+                    and entity_alt_labels not in entities[entity_uri].alt_labels
+                ):
+                    entities[entity_uri].alt_labels.append(entity_alt_labels)
 
         return sorted(
             list(entities.values()),

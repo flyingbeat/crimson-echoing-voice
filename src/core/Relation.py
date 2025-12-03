@@ -12,11 +12,16 @@ if TYPE_CHECKING:
 
 class Relation:
     def __init__(
-        self, uri: URIRef, knowledge_graph: "KnowledgeGraph", label: str | None = None
+        self,
+        uri: URIRef,
+        knowledge_graph: "KnowledgeGraph",
+        label: str | None = None,
+        alt_labels: list[str] = [],
     ):
         self.__uri = uri
         self.__label = label
         self.__knowledge_graph = knowledge_graph
+        self.__alt_labels = alt_labels
 
     def __repr__(self):
         return f"Relation(uri={self.uri}, label={self.label})"
@@ -59,6 +64,10 @@ class Relation:
 
     def __get_label(self, uri: URIRef) -> str:
         return self.__knowledge_graph.get_label(uri)
+
+    @property
+    def alt_labels(self) -> list[str]:
+        return self.__alt_labels
 
     @classmethod
     def from_binding(

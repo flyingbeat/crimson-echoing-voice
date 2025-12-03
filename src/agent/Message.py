@@ -101,22 +101,27 @@ class Message:
         matches = []
 
         for relation in knowledge_graph_relations:
-            if not relation.label:
-                continue
+            print(relation.alt_labels)
+            for label in [relation.label] + relation.alt_labels:
+                if not label:
+                    continue
 
-            rel_label_lower = relation.label.lower()
-            if rel_label_lower in query_lower:
-                score = 100 + len(rel_label_lower)
-                matches.append((relation, score))
-            elif rel_label_lower in normalized_query:
-                score = 98 + len(rel_label_lower)
-                matches.append((relation, score))
-            else:
-                fuzzy_score = fuzz.partial_ratio(rel_label_lower, query_lower)
+                rel_label_lower = label.lower()
+                if rel_label_lower in query_lower:
+                    score = 100 + len(rel_label_lower)
+                    matches.append((relation, score))
+                    break
+                elif rel_label_lower in normalized_query:
+                    score = 98 + len(rel_label_lower)
+                    matches.append((relation, score))
+                    break
+                else:
+                    fuzzy_score = fuzz.partial_ratio(rel_label_lower, query_lower)
 
-                if fuzzy_score > self.__fuzzy_threshold:
-                    adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
-                    matches.append((relation, int(adjusted_score)))
+                    if fuzzy_score > self.__fuzzy_threshold:
+                        adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
+                        matches.append((relation, int(adjusted_score)))
+                        break
         return matches
 
     def __normalize_for_relations(self) -> str:
@@ -190,22 +195,24 @@ class Message:
         matches = []
 
         for entity in knowledge_graph_entities:
-            if not entity.label:
-                continue
+            for label in [entity.label] + entity.alt_labels:
+                if not label:
+                    continue
 
-            pattern = r"\b" + re.escape(entity.label.lower()) + r"\b"
+                pattern = r"\b" + re.escape(label.lower()) + r"\b"
 
-            match = re.search(pattern, remaining_query)
+                match = re.search(pattern, remaining_query)
 
-            if match:
-                score = 100 + len(entity.label)
-                matches.append(
-                    (
-                        entity,
-                        score,
+                if match:
+                    score = 100 + len(label)
+                    matches.append(
+                        (
+                            entity,
+                            score,
+                        )
                     )
-                )
-                remaining_query = re.sub(pattern, " ", remaining_query, 1)
+                    remaining_query = re.sub(pattern, " ", remaining_query, 1)
+                    break
 
         return sorted(
             matches,

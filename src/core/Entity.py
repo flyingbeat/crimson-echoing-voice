@@ -5,7 +5,7 @@ from rdflib import URIRef
 
 from utils import BindingDict
 
-from .Namespaces import CAST, MV
+from .Namespaces import CAST, MV, SKOS
 from .Relation import Relation
 
 if TYPE_CHECKING:
@@ -20,6 +20,7 @@ class Entity:
         knowledge_graph: "KnowledgeGraph",
         label: str | None = None,
         instance_of: list[URIRef] | None = None,
+        alt_labels: list[str] = [],
         imdb_id: str | None = None,
     ):
         self.__uri = uri
@@ -28,11 +29,14 @@ class Entity:
         self.__instance_of = (
             [Entity(i, knowledge_graph) for i in instance_of] if instance_of else []
         )
+        self.__alt_labels = alt_labels
         self.__imdb_id = imdb_id
         self.__properties: dict[Relation, list["Property"]] = {}
 
     def __repr__(self):
-        return f"Entity(uri={self.uri}, label={self.label})"
+        return (
+            f"Entity(uri={self.uri}, label={self.label}, alt_labels={self.alt_labels})"
+        )
 
     def __str__(self):
         return self.label if self.label else str(self.uri)
@@ -53,6 +57,10 @@ class Entity:
         triplets = self.__knowledge_graph.get_triplets(entity=self, relation=P31)
         self.__instance_of = [p for _, _, p in triplets]
         return self.__instance_of
+
+    @property
+    def alt_labels(self) -> list[str]:
+        return self.__alt_labels
 
     @property
     def imdb(self) -> Union["Entity", None]:
