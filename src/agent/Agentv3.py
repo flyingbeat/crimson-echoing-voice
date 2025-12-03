@@ -84,13 +84,13 @@ class Agentv3:
         response = None
 
         if question_type == "multimedia":
-            image_uri = self.get_multimedia_answers(
+            image = self.get_multimedia_answers(
                 entities=entities_in_message,
                 properties=properties_in_message
-            ).uri
+            )
 
-            if image_uri:
-                uri = str(image_uri)
+            if image:
+                uri = str(image.uri)
                 formatted = "image:" + "/".join(
                     uri.rstrip("/").split("/")[-2:]
                 ).rsplit(".", 1)[0]
@@ -122,7 +122,7 @@ class Agentv3:
 
             if factual_answers and factual_answers.answers:
                 intro = choice(self.factual_answer_intros)
-                answer_text = "and ".join(factual_answers.answers)
+                answer_text = " and ".join(factual_answers.answers)
                 response = f"{intro} {answer_text}"
             else:
                 response = "I'm not sure about the answer to that specific question."
@@ -169,7 +169,7 @@ class Agentv3:
             self,
             entities: list[Entity],
             properties: list[Property],
-    ) -> None:
+    ) -> Entity | None:
         if properties:
             for key, image_list in properties[0].images.items():
                 if image_list:
