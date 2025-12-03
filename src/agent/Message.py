@@ -1,3 +1,4 @@
+import json
 import re
 
 from thefuzz import fuzz, process
@@ -56,6 +57,22 @@ class Message:
             self.__knowledge_graph
         )
         self.__fuzzy_threshold = 85
+
+    def __repr__(self):
+        content = json.dumps(
+            {
+                "content": self.content,
+                "entities": self.entities,
+                "properties": self.properties,
+                "relations": self.relations,
+            },
+            indent=2,
+            default=repr,
+        )
+        return f"Message({content})"
+
+    def __str__(self):
+        return self.content
 
     @property
     def content(self) -> str:
@@ -165,44 +182,6 @@ class Message:
         if self.__entities_with_scores is None:
             self.__entities_with_scores = self.__get_entities_with_scores()
         return self.__entities_with_scores
-
-    @property
-    def question_type(self) -> str:
-        text = self.content.lower()
-
-        keywords = {
-            "multimedia": [
-                "picture", "image", "photo", "poster", "look like", "show me",
-                "visual", "img"
-            ],
-            "recommendation": [
-                "recommend", "suggestion", "suggest", "similar", "like", "liked",
-                "enjoy", "enjoyed", "favorite", "other movies", "watch", "best"
-            ],
-            "one_hop": [
-                "who", "what", "when", "where", "directed", "director", "writer",
-                "screenwriter", "composed", "composer", "genre", "release",
-                "date", "year", "budget", "cost", "box office", "nominated",
-                "award", "won", "did", "star", "cast", "play", "role"
-            ]
-        }
-
-        scores = {key: 0 for key in keywords}
-
-        for category, tokens in keywords.items():
-            for token in tokens:
-                if token in text:
-                    if token in ["recommend", "image", "poster", "picture"]:
-                        scores[category] += 2
-                    else:
-                        scores[category] += 1
-
-        best_match = max(scores, key=scores.get)
-
-        if scores[best_match] == 0:
-            return "one_hop"
-
-        return best_match
 
     def __get_entities_with_scores(self) -> list[tuple[Entity, int]]:
         knowledge_graph_entities = self.__knowledge_graph.entities

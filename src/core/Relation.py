@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING
 
-from rdflib import RDFS, Namespace, URIRef
+from rdflib import RDFS, URIRef
 
 from utils import BindingDict
 
+from .Namespaces import SCHEMA, WDT
+
 if TYPE_CHECKING:
     from .KnowledgeGraph import KnowledgeGraph
-
-SCHEMA = Namespace("http://schema.org/")
 
 
 class Relation:
@@ -19,7 +19,7 @@ class Relation:
         self.__knowledge_graph = knowledge_graph
 
     def __repr__(self):
-        return str(self.uri)
+        return f"Relation(uri={self.uri}, label={self.label})"
 
     def __hash__(self):
         return hash(self.__uri)
@@ -32,14 +32,14 @@ class Relation:
     @classmethod
     def instance_of(cls, knowledge_graph: "KnowledgeGraph") -> "Relation":
         return cls(
-            uri=URIRef("http://www.wikidata.org/prop/direct/P31"),
+            uri=WDT.P31,
             knowledge_graph=knowledge_graph,
         )
 
     @classmethod
     def imdb_id(cls, knowledge_graph: "KnowledgeGraph") -> "Relation":
         return cls(
-            uri=URIRef("http://www.wikidata.org/prop/direct/P345"),
+            uri=WDT.P345,
             knowledge_graph=knowledge_graph,
         )
 

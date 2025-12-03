@@ -1,37 +1,41 @@
 from collections import Counter
+from random import choice
 
 from rdflib import RDFS, URIRef
 
 from core import Entity, KnowledgeGraph, Property, Relation
 from utils import SPARQLQuery, get_common_values
 
+from .Answer import Answer
+from .Message import Message
 
-class Recommendations:
+
+class RecommendationAnswer(Answer):
 
     def __init__(
         self,
-        recommendations: list[Entity],
+        message: Message,
         knowledge_graph: KnowledgeGraph,
         relevant_instance_of_entities: list[Entity] | None = None,
     ):
-        self.__recommendations = recommendations
-        self.__knowledge_graph = knowledge_graph
+        super().__init__(message, knowledge_graph)
         if relevant_instance_of_entities is not None:
             self.__relevant_instance_of_entities = relevant_instance_of_entities
         else:
             self.__relevant_instance_of_entities = Entity.instance_of_movies(
-                self.__knowledge_graph
+                self._knowledge_graph
             )
+        self.__recommendations = self.__get_recommendations()
 
-    def __add__(self, other: "Recommendations") -> list[Entity]:
+    def __add__(self, other: "RecommendationAnswer") -> list[Entity]:
         combined = self.__recommendations + other.recommendations
         unique_recommendations = list(
             {entity.uri: entity for entity in combined}.values()
         )
         return unique_recommendations
 
-    def __eq__(self, other: "Recommendations") -> bool:
-        if not isinstance(other, Recommendations):
+    def __eq__(self, other: "RecommendationAnswer") -> bool:
+        if not isinstance(other, RecommendationAnswer):
             return False
         return set(self.__recommendations) == set(other.recommendations)
 
@@ -44,37 +48,40 @@ class Recommendations:
     def __len__(self):
         return len(self.__recommendations)
 
+    def answer(self) -> list[str]:
+        return [e.label for e in self]
+
+    def formatted_answer(self) -> str:
+        answers = self.answer()
+        if not answers:
+            return "I couldn't find any recommendations based on your input."
+        recommendation_answer_intros = [
+            "Based on your input, you might enjoy these movies:",
+            "Here are some movies I found for you:",
+            "Based on your request, you should check out these recommendations:",
+            "I've found the following movies that you might like:",
+            "You might find these movies interesting:",
+            "Here are some recommendations based on your input:",
+        ]
+        answer_intro = choice(recommendation_answer_intros)
+        return f"{answer_intro}\n- " + "\n- ".join(answers)
+
     @property
     def recommendations(self) -> list[Entity]:
         return self.__recommendations
 
-    @property
-    def relevant_instance_of_entities(self) -> list[Entity]:
-        return self.__relevant_instance_of_entities
-
-    @classmethod
-    def from_entities(
-        cls, entities: list[Entity], knowledge_graph: KnowledgeGraph
-    ) -> "Recommendations":
-        return Recommendations(
-            cls.__based_on_entities(entities, knowledge_graph),
-            knowledge_graph=knowledge_graph,
-        )
-
-    @classmethod
-    def from_properties(
-        cls,
-        properties: list[str],
-        knowledge_graph: KnowledgeGraph,
-        relevant_instance_of_entities: list[Entity] = [],
-    ) -> "Recommendations":
-        return cls(
-            cls.__based_on_properties(
-                properties, knowledge_graph, relevant_instance_of_entities
-            ),
-            knowledge_graph=knowledge_graph,
-            relevant_instance_of_entities=relevant_instance_of_entities,
-        )
+    def __get_recommendations(self) -> list[Entity]:
+        entities_in_message = self._message.entities
+        properties_in_message = self._message.properties
+        if entities_in_message:
+            return self.__based_on_entities(entities_in_message, self._knowledge_graph)
+        if properties_in_message:
+            return self.__based_on_properties(
+                properties_in_message,
+                self._knowledge_graph,
+                self.__relevant_instance_of_entities,
+            )
+        return []
 
     @staticmethod
     def __based_on_entities(

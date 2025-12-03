@@ -1,14 +1,16 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING, Union
 
-from rdflib import Namespace, URIRef
+from rdflib import URIRef
 
 from utils import BindingDict
 
+from .Namespaces import CAST, MV
 from .Relation import Relation
 
 if TYPE_CHECKING:
-    from core import KnowledgeGraph, Property
+    from .KnowledgeGraph import KnowledgeGraph
+    from .Property import Property
 
 
 class Entity:
@@ -30,7 +32,7 @@ class Entity:
         self.__properties: dict[Relation, list["Property"]] = {}
 
     def __repr__(self):
-        return str(self.uri)
+        return f"Entity(uri={self.uri}, label={self.label})"
 
     def __str__(self):
         return self.label if self.label else str(self.uri)
@@ -61,19 +63,20 @@ class Entity:
                 _, _, p = triplets[0]
                 self.__imdb_id = str(p)
         if self.__imdb_id and self.__imdb_id.startswith("nm"):
-            uri = URIRef(f"https://www.imdb.com/name/{self.__imdb_id}")
+            uri = CAST[self.__imdb_id]
 
         if self.__imdb_id and self.__imdb_id.startswith("tt"):
-            uri = URIRef(f"https://www.imdb.com/title/{self.__imdb_id}")
+            uri = MV[self.__imdb_id]
 
         return Entity(uri, self.__knowledge_graph) if self.__imdb_id else None
 
     @property
-    def images(self) -> list["Entity"]:
-        if self.uri.startswith("https://www.imdb.com/"):
+    def images(self) -> dict[Relation, list["Property"]]:
+        if self.uri.startswith(CAST) or self.uri.startswith(MV):
             return self.properties
-        if self.imdb:
+        if self.imdb.uri.startswith(CAST) or self.imdb.uri.startswith(MV):
             return self.imdb.properties
+        return {}
 
     @property
     def uri(self) -> URIRef:

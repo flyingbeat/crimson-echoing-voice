@@ -1,16 +1,12 @@
-from rdflib import RDFS, Namespace, URIRef
+from rdflib import RDFS, URIRef
 from SPARQLWrapper import JSON, SPARQLWrapper
 
 from utils import BindingDict, SPARQLQuery
 
 from .Entity import Entity
+from .Namespaces import SCHEMA, WD, WDT
 from .Property import Property
 from .Relation import Relation
-
-WD = Namespace("http://www.wikidata.org/entity/")
-WDT = Namespace("http://www.wikidata.org/prop/direct/")
-DDIS = Namespace("http://ddis.ch/atai/")
-SCHEMA = Namespace("http://schema.org/")
 
 
 class KnowledgeGraph:
@@ -23,22 +19,8 @@ class KnowledgeGraph:
             self
         ) + Entity.instance_of_movie_properties(self)
 
-    def get_uri(self, label: str) -> URIRef:
-        triplet = self.get_triplets(None, Relation(RDFS.label, self), label)
-        if triplet:  # TODO what if more than one >>> and len(triplet) == 1:
-            return triplet[0][0].uri
-        return ""
-
     def get_label(self, uri: URIRef) -> str:
         triplet = self.get_triplets(Entity(uri, self), Relation(RDFS.label, self), None)
-        if triplet and isinstance(triplet[0][2], str):
-            return triplet[0][2]
-        return ""
-
-    def get_description(self, uri: URIRef) -> str:
-        triplet = self.get_triplets(
-            Entity(uri, self), Relation(SCHEMA.description, self), None
-        )
         if triplet and isinstance(triplet[0][2], str):
             return triplet[0][2]
         return ""
@@ -84,7 +66,7 @@ class KnowledgeGraph:
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
                 ?uri <{P31.uri}> ?instance_of .
-                ?uri <{P345.uri}> ?imdb_id .
+                OPTIONAL {{ ?uri <{P345.uri}> ?imdb_id . }}
                 FILTER(?instance_of IN ({', '.join(f'<{e.uri}>' for e in self.__relevant_instance_of)})) . 
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
             }}
