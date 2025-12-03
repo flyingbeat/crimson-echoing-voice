@@ -31,16 +31,15 @@ class Agentv3:
             "I'm on it!",
             "Let me check that for you.",
             "Thinking...",
-            "Searching for the best recommendations...",
-            "Give me a moment to find something great for you.",
+            "Consulting the knowledge base...",
             "Let me see what I can find.",
             "I'm looking into it now.",
-            "Just a second, I'm gathering some recommendations.",
-            "Hold on, I'm fetching some options for you.",
+            "Just a second, processing your request.",
             "Let me think about that for a moment.",
+            "Searching for the answer...",
         ]
 
-        self.generic_answers = [
+        self.recommendation_answer_intros = [
             "Based on your input, you might enjoy these movies:",
             "Here are some movies I found for you:",
             "Based on your request, you should check out these recommendations:",
@@ -48,6 +47,15 @@ class Agentv3:
             "You might find these movies interesting:",
             "Here are some recommendations based on your input:",
         ]
+
+        self.factual_answer_intros = [
+            "The answer to your question is:",
+            "According to my data:",
+            "Here is the information you asked for:",
+            "I found this information:",
+            "The answer is:",
+        ]
+
         self.answers_cache = {}
 
     def run(self):
@@ -73,6 +81,8 @@ class Agentv3:
         print(f"Relations: {relations_in_message}")
         print(f"Properties: {properties_in_message}")
 
+        response = None
+
         if question_type == "multimedia":
             image_uri = self.get_multimedia_answers(
                 entities=entities_in_message,
@@ -84,10 +94,9 @@ class Agentv3:
                 formatted = "image:" + "/".join(
                     uri.rstrip("/").split("/")[-2:]
                 ).rsplit(".", 1)[0]
-                room.post_messages(formatted)
+                response = formatted
             else:
-                room.post_messages("Sorry, I couldn't find an image for that.")
-            return
+                response = "Sorry, I couldn't find an image for that."
 
         elif question_type == "recommendation":
             recommendations = self.get_recommendations(
@@ -99,14 +108,11 @@ class Agentv3:
                 recommendation_labels = [
                     entity.label for entity in recommendations if entity.label
                 ]
-                response = f"{choice(self.generic_answers)}\n- " + "\n- ".join(
+                response = f"{choice(self.recommendation_answer_intros)}\n- " + "\n- ".join(
                     recommendation_labels
                 )
-                room.post_messages(response)
-                self.answers_cache[content] = response
             else:
-                room.post_messages("I couldn't find any recommendations based on your input.")
-            return
+                response = "I couldn't find any recommendations based on your input."
 
         elif question_type == "one_hop":
             factual_answers = self.get_factual_answers(
@@ -115,15 +121,20 @@ class Agentv3:
             )
 
             if factual_answers and factual_answers.answers:
-                room.post_messages("and ".join(factual_answers.answers))
+                intro = choice(self.factual_answer_intros)
+                answer_text = "and ".join(factual_answers.answers)
+                response = f"{intro} {answer_text}"
             else:
-                room.post_messages("I'm not sure about the answer to that specific question.")
-            return
+                response = "I'm not sure about the answer to that specific question."
+
+        if response:
+            room.post_messages(response)
+            self.answers_cache[content] = response
 
     def get_recommendations(
-        self,
-        entities: list[Entity],
-        properties: list[Property],
+            self,
+            entities: list[Entity],
+            properties: list[Property],
     ) -> Recommendations | None:
         if entities:
             return Recommendations.from_entities(
@@ -141,10 +152,11 @@ class Agentv3:
             return None
 
     def get_factual_answers(
-        self,
-        entities: list[Entity],
-        relations: list[Relation],
+            self,
+            entities: list[Entity],
+            relations: list[Relation],
     ) -> FactualAnswers | None:
+        # TODO: Reintroduce LLM?
         if not entities or not relations:
             return None
         return FactualAnswers(
@@ -163,6 +175,7 @@ class Agentv3:
                 if image_list:
                     return image_list[0]
         if entities:
+            # TODO: Decide between backdrop and poster
             for key, image_list in entities[0].images.items():
                 if str(key) == "http://schema.org/Backdrop" and image_list:
                     return image_list[0]
