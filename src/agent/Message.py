@@ -122,7 +122,11 @@ class Message:
                         adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
                         matches.append((relation, int(adjusted_score)))
                         break
-        return matches
+        return sorted(
+            matches,
+            key=lambda relation_score: (relation_score[1], len(relation_score[0].label)),
+            reverse=True,
+        )
 
     def __normalize_for_relations(self) -> str:
         normalized = self.content.lower()

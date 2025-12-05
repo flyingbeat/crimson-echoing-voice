@@ -49,7 +49,7 @@ class RecommendationAnswer(Answer):
         return len(self.__recommendations)
 
     def answer(self) -> list[str]:
-        return [e.label for e in self]
+        return [e.label for e in self if e.label]
 
     def formatted_answer(self) -> str:
         answers = self.answer()
