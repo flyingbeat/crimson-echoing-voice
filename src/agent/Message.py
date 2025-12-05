@@ -101,7 +101,6 @@ class Message:
         matches = []
 
         for relation in knowledge_graph_relations:
-            print(relation.alt_labels)
             for label in [relation.label] + relation.alt_labels:
                 if not label:
                     continue
@@ -124,7 +123,10 @@ class Message:
                         break
         return sorted(
             matches,
-            key=lambda relation_score: (relation_score[1], len(relation_score[0].label)),
+            key=lambda relation_score: (
+                relation_score[1],
+                len(relation_score[0].label),
+            ),
             reverse=True,
         )
 
