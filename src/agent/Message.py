@@ -5,44 +5,40 @@ from thefuzz import fuzz, process
 
 from core import Entity, KnowledgeGraph, Relation
 
+# only single words are suported in the synonym lists
+# because in the normalization we want to replace full words only
 RELATION_LABEL_SYNONYMS = {
-    "director": ["director", "directed", "directs", "direct"],
-    "award": ["award", "oscar", "prize"],
+    "director": ["directed", "directs", "direct"],
+    "award received": ["oscar", "prize"],
     "publication date": [
         "release",
         "date",
-        "released",
         "releases",
         "release date",
         "publication",
         "launch",
         "broadcast",
-        "launched",
         "come out",
     ],
-    "executive producer": ["showrunner", "executive producer"],
-    "screenwriter": ["screenwriter", "scriptwriter", "writer", "story"],
-    "film editor": ["editor", "film editor"],
-    "box office": ["box", "office", "funding", "box office"],
-    "cost": ["budget", "cost"],
+    "executive producer": [
+        "showrunner",
+    ],
+    "screenwriter": ["scriptwriter", "writer", "story"],
+    "box office": ["box", "office", "funding"],
     "nominated for": [
         "nomination",
-        "award",
         "finalist",
         "shortlist",
         "selection",
-        "nominated for",
     ],
     "production company": [
         "company",
-        "company of production",
+        "production",
         "produced",
-        "production company",
     ],
-    "country of origin": ["origin", "country", "country of origin"],
-    "cast member": ["actor", "actress", "cast", "cast member"],
-    "genre": ["type", "kind", "genre"],
-    "film": ["movie"],
+    "country of origin": ["origin"],
+    "cast member": ["cast", "played", "plays", "acts", "acted"],
+    "genre": ["type", "kind"],
 }
 
 
@@ -120,7 +116,7 @@ class Message:
                     if fuzzy_score > self.__fuzzy_threshold:
                         adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
                         matches.append((relation, int(adjusted_score)))
-                        break
+
         return sorted(
             matches,
             key=lambda relation_score: (
@@ -138,7 +134,7 @@ class Message:
             for synonym in sorted(syn_list, key=len, reverse=True):
                 synonym_lower = synonym.lower()
 
-                if synonym_lower in normalized:
+                if synonym_lower in words:
                     normalized = normalized.replace(synonym_lower, canonical.lower())
                 else:
                     if " " in synonym_lower:
