@@ -54,20 +54,19 @@ class KnowledgeGraph:
         ):
             relation_uri = uri["value"]
             relation_label = label["value"]
-            relation_alt_labels = alt_label["value"] if alt_label else None
+            relation_alt_label = alt_label["value"] if alt_label else None
             if relation_uri not in relations:
                 relations[relation_uri] = Relation(
                     URIRef(relation_uri),
                     self,
                     relation_label,
-                    [relation_alt_labels] if relation_alt_labels else [],
+                    [relation_alt_label] if relation_alt_label else [],
                 )
             else:
-                if (
-                    relation_alt_labels
-                    and relation_alt_labels not in relations[relation_uri].alt_labels
-                ):
-                    relations[relation_uri].alt_labels.append(relation_alt_labels)
+                if relation_alt_label:
+                    relations[relation_uri].alt_labels = relations[
+                        relation_uri
+                    ].alt_labels + [relation_alt_label]
         return list(relations.values())
 
     @property

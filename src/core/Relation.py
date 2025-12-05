@@ -69,6 +69,10 @@ class Relation:
     def alt_labels(self) -> list[str]:
         return sorted(self.__alt_labels, key=lambda label: len(label), reverse=True)
 
+    @alt_labels.setter
+    def alt_labels(self, value: list[str]):
+        self.__alt_labels = value
+
     @classmethod
     def from_binding(
         cls, binding: BindingDict, knowledge_graph: "KnowledgeGraph"
