@@ -134,31 +134,8 @@ class Message:
             for synonym in sorted(syn_list, key=len, reverse=True):
                 synonym_lower = synonym.lower()
 
-                if synonym_lower in words:
+                if synonym_lower in normalized and any(word in synonym_lower for word in words):
                     normalized = normalized.replace(synonym_lower, canonical.lower())
-                else:
-                    if " " in synonym_lower:
-                        if (
-                            fuzz.partial_ratio(synonym_lower, normalized)
-                            > self.__fuzzy_threshold
-                        ):
-                            best_match = process.extractOne(
-                                synonym_lower,
-                                [
-                                    normalized[i : i + len(synonym_lower) + 10]
-                                    for i in range(len(normalized))
-                                ],
-                                scorer=fuzz.partial_ratio,
-                            )
-                            if best_match and best_match[1] > self.__fuzzy_threshold:
-                                normalized = normalized.replace(
-                                    synonym_lower, canonical.lower()
-                                )
-                    else:
-                        for word in words:
-                            if fuzz.ratio(synonym_lower, word) > self.__fuzzy_threshold:
-                                normalized = normalized.replace(word, canonical.lower())
-                                break
 
         return normalized
 
