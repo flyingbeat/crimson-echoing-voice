@@ -11,9 +11,9 @@ class MultiMediaAnswer(Answer):
                 if image_list:
                     return [str(image.uri) for image in image_list]
         if self._message.entities:
-            # TODO: Decide between backdrop and poster
+            image_type = SCHEMA.Poster if "poster" in self._message.content.lower() else SCHEMA.Backdrop
             for key, image_list in self._message.entities[0].images.items():
-                if (key.uri == SCHEMA.Poster) and image_list:
+                if (key.uri == image_type) and image_list:
                     return [str(image.uri) for image in image_list]
         return []
 
