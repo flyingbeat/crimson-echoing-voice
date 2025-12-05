@@ -6,14 +6,14 @@ from .Answer import Answer
 class MultiMediaAnswer(Answer):
 
     def answer(self) -> list[str]:
-        if self._message.properties:
-            for image_list in self._message.properties[0].images.values():
-                if image_list:
-                    return [str(image.uri) for image in image_list]
         if self._message.entities:
             image_type = SCHEMA.Poster if "poster" in self._message.content.lower() else SCHEMA.Backdrop
             for key, image_list in self._message.entities[0].images.items():
                 if (key.uri == image_type) and image_list:
+                    return [str(image.uri) for image in image_list]
+        if self._message.properties:
+            for image_list in self._message.properties[0].images.values():
+                if image_list:
                     return [str(image.uri) for image in image_list]
         return []
 
