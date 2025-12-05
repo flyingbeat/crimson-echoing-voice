@@ -67,7 +67,7 @@ class Relation:
 
     @property
     def alt_labels(self) -> list[str]:
-        return self.__alt_labels
+        return sorted(self.__alt_labels, key=lambda label: len(label), reverse=True)
 
     @classmethod
     def from_binding(

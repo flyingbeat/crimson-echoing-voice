@@ -11,13 +11,15 @@ class Response(str):
 
     def __new__(cls, message: Message, knowledge_graph: KnowledgeGraph):
         AnswerType = cls.__get_answer_type(message)
-        answer = AnswerType(message, knowledge_graph).formatted_answer()
+        answer_instance = AnswerType(message, knowledge_graph)
+        answer = answer_instance.formatted_answer()
         obj = str.__new__(cls, answer)
         obj.answer_type = AnswerType.__name__
+        obj.answer = answer_instance.answer()
         return obj
 
     def __repr__(self):
-        return f"Response(answer_type={self.answer_type}, content={super().__str__()})"
+        return f"Response(answer_type={self.answer_type}, content={super().__str__()}, answers={self.answer})"
 
     @staticmethod
     def __get_answer_type(message: Message) -> type[Answer]:
