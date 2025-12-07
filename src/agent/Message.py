@@ -37,7 +37,7 @@ RELATION_LABEL_SYNONYMS = {
         "produced",
     ],
     "country of origin": ["origin"],
-    "cast member": ["cast", "played", "plays", "acts", "acted"],
+    "cast member": ["cast", "played", "plays", "acts", "acted", "play", "act"],
     "genre": ["type", "kind"],
 }
 
@@ -53,6 +53,7 @@ class Message:
             self.__knowledge_graph
         )
         self.__fuzzy_threshold = 85
+        self.__normalized_content = content
 
     def __repr__(self):
         content = json.dumps(
@@ -77,6 +78,10 @@ class Message:
     @content.setter
     def content(self, value: str):
         self.__content = value
+
+    @property
+    def normalized_content(self) -> str:
+        return self.__normalized_content
 
     @property
     def relations(self) -> list[Relation]:
@@ -105,10 +110,14 @@ class Message:
                 if rel_label_lower in query_lower:
                     score = 100 + len(rel_label_lower)
                     matches.append((relation, score))
+                    self.__normalized_content = query_lower.replace(
+                        rel_label_lower, relation.label.lower()
+                    )
                     break
                 elif rel_label_lower in normalized_query:
                     score = 98 + len(rel_label_lower)
                     matches.append((relation, score))
+                    self.__normalized_content = normalized_query
                     break
                 else:
                     fuzzy_score = fuzz.partial_ratio(rel_label_lower, query_lower)
@@ -134,7 +143,9 @@ class Message:
             for synonym in sorted(syn_list, key=len, reverse=True):
                 synonym_lower = synonym.lower()
 
-                if synonym_lower in normalized and any(word in synonym_lower for word in words):
+                if synonym_lower in normalized and any(
+                    word in synonym_lower for word in words
+                ):
                     normalized = normalized.replace(synonym_lower, canonical.lower())
 
         return normalized
