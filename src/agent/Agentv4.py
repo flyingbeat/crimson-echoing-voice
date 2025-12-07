@@ -1,5 +1,7 @@
 from random import choice
 
+from openapi.models.chat_message_reaction_type import ChatMessageReactionType
+from openapi.models.rest_chat_message import RestChatMessage
 from speakeasypy import Chatroom, EventType, Speakeasy
 
 from core import KnowledgeGraph
@@ -24,6 +26,7 @@ class Agentv4:
 
         self.__speakeasy.login()
         self.__speakeasy.register_callback(self.on_new_message, EventType.MESSAGE)
+        self.__speakeasy.register_callback(self.on_new_reaction, EventType.REACTION)
 
         self.__thinking_messages = [
             "I'm on it!",
@@ -62,3 +65,35 @@ class Agentv4:
 
         room.post_messages(response)
         self.__answers_cache[content] = response
+
+    def on_new_reaction(
+        self, reaction: ChatMessageReactionType, message_ordinal: int, room: Chatroom
+    ):
+        print(f"Reaction(type={reaction}, message_ordinal={message_ordinal})")
+        match reaction:
+            case ChatMessageReactionType.THUMBS_DOWN:
+                chat_message = self.__get_message_by_ordinal(message_ordinal, room)
+                if chat_message is not None:
+                    self.__remove_cached_answer(chat_message.message)
+            case _:
+                pass
+
+    def __remove_cached_answer(self, answer_string: str):
+        for question, answer in self.__answers_cache.items():
+            if answer_string == answer:
+                print(f"Removing cached answer for question: {question}")
+                del self.__answers_cache[question]
+                break
+
+    def __get_message_by_ordinal(
+        self, ordinal: int, room: Chatroom
+    ) -> RestChatMessage | None:
+        filtered = list(
+            filter(
+                lambda m: m.ordinal == ordinal,
+                room.get_messages(only_new=False, only_partner=False),
+            )
+        )
+        if len(filtered) == 1:
+            return filtered[0]
+        return None
