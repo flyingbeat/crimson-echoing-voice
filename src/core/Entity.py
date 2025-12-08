@@ -1,14 +1,16 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from rdflib import URIRef
 
 from utils import BindingDict
 
+from .Namespaces import CAST, MV, SKOS
 from .Relation import Relation
 
 if TYPE_CHECKING:
-    from core import KnowledgeGraph, Property
+    from .KnowledgeGraph import KnowledgeGraph
+    from .Property import Property
 
 
 class Entity:
@@ -17,19 +19,27 @@ class Entity:
         uri: URIRef,
         knowledge_graph: "KnowledgeGraph",
         label: str | None = None,
-        instance_of: URIRef | None = None,
+        instance_of: list[URIRef] | None = None,
+        alt_labels: list[str] = [],
+        imdb_id: str | None = None,
     ):
         self.__uri = uri
         self.__label: str | None = label
         self.__knowledge_graph = knowledge_graph
+        self.__instance_of = (
+            [Entity(i, knowledge_graph) for i in instance_of] if instance_of else []
+        )
+        self.__alt_labels = alt_labels
+        self.__imdb_id = imdb_id
         self.__properties: dict[Relation, list["Property"]] = {}
-        if instance_of:
-            self.__properties[Relation.instance_of(knowledge_graph)] = [
-                Entity(instance_of, knowledge_graph)
-            ]
 
     def __repr__(self):
-        return str(self.uri)
+        return (
+            f"Entity(uri={self.uri}, label={self.label}, alt_labels={self.alt_labels})"
+        )
+
+    def __str__(self):
+        return self.label if self.label else str(self.uri)
 
     def __hash__(self):
         return hash(self.__uri)
@@ -41,13 +51,40 @@ class Entity:
 
     @property
     def instance_of(self) -> list["Entity"]:
+        if self.__instance_of:
+            return self.__instance_of
         P31 = Relation.instance_of(self.__knowledge_graph)
-        if self.__properties and (instance_of := self.__properties.get(P31)):
-            return instance_of
         triplets = self.__knowledge_graph.get_triplets(entity=self, relation=P31)
-        instance_of = [p for _, _, p in triplets]
-        self.__properties[P31] = instance_of
-        return instance_of
+        self.__instance_of = [p for _, _, p in triplets]
+        return self.__instance_of
+
+    @property
+    def alt_labels(self) -> list[str]:
+        return self.__alt_labels
+
+    @property
+    def imdb(self) -> Union["Entity", None]:
+        if not self.__imdb_id:
+            P345 = Relation.imdb_id(self.__knowledge_graph)
+            triplets = self.__knowledge_graph.get_triplets(entity=self, relation=P345)
+            if triplets:
+                _, _, p = triplets[0]
+                self.__imdb_id = str(p)
+        if self.__imdb_id and self.__imdb_id.startswith("nm"):
+            uri = CAST[self.__imdb_id]
+
+        if self.__imdb_id and self.__imdb_id.startswith("tt"):
+            uri = MV[self.__imdb_id]
+
+        return Entity(uri, self.__knowledge_graph) if self.__imdb_id else None
+
+    @property
+    def images(self) -> dict[Relation, list["Property"]]:
+        if self.uri.startswith(CAST) or self.uri.startswith(MV):
+            return self.properties
+        if self.imdb.uri.startswith(CAST) or self.imdb.uri.startswith(MV):
+            return self.imdb.properties
+        return {}
 
     @property
     def uri(self) -> URIRef:

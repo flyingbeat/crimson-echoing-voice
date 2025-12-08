@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from speakeasypy import Speakeasy
 
-from agent import Agentv3 as Agent
+from agent import Agentv4 as Agent
 
 if __name__ == "__main__":
     load_dotenv()

@@ -1,23 +1,30 @@
 from typing import TYPE_CHECKING
 
-from rdflib import RDFS, Namespace, URIRef
+from rdflib import RDFS, URIRef
 
 from utils import BindingDict
+
+from .Namespaces import SCHEMA, WDT
 
 if TYPE_CHECKING:
     from .KnowledgeGraph import KnowledgeGraph
 
-SCHEMA = Namespace("http://schema.org/")
-
 
 class Relation:
-    def __init__(self, uri: URIRef, knowledge_graph: "KnowledgeGraph"):
+    def __init__(
+        self,
+        uri: URIRef,
+        knowledge_graph: "KnowledgeGraph",
+        label: str | None = None,
+        alt_labels: list[str] = [],
+    ):
         self.__uri = uri
-        self.__label: str | None = None
+        self.__label = label
         self.__knowledge_graph = knowledge_graph
+        self.__alt_labels = alt_labels
 
     def __repr__(self):
-        return str(self.uri)
+        return f"Relation(uri={self.uri}, label={self.label})"
 
     def __hash__(self):
         return hash(self.__uri)
@@ -30,7 +37,14 @@ class Relation:
     @classmethod
     def instance_of(cls, knowledge_graph: "KnowledgeGraph") -> "Relation":
         return cls(
-            uri=URIRef("http://www.wikidata.org/prop/direct/P31"),
+            uri=WDT.P31,
+            knowledge_graph=knowledge_graph,
+        )
+
+    @classmethod
+    def imdb_id(cls, knowledge_graph: "KnowledgeGraph") -> "Relation":
+        return cls(
+            uri=WDT.P345,
             knowledge_graph=knowledge_graph,
         )
 
@@ -50,6 +64,14 @@ class Relation:
 
     def __get_label(self, uri: URIRef) -> str:
         return self.__knowledge_graph.get_label(uri)
+
+    @property
+    def alt_labels(self) -> list[str]:
+        return sorted(self.__alt_labels, key=lambda label: len(label), reverse=True)
+
+    @alt_labels.setter
+    def alt_labels(self, value: list[str]):
+        self.__alt_labels = value
 
     @classmethod
     def from_binding(

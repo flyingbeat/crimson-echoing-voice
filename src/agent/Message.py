@@ -1,47 +1,44 @@
+import json
 import re
 
 from thefuzz import fuzz, process
 
 from core import Entity, KnowledgeGraph, Relation
 
+# only single words are suported in the synonym lists
+# because in the normalization we want to replace full words only
 RELATION_LABEL_SYNONYMS = {
-    "director": ["director", "directed", "directs", "direct"],
-    "award": ["award", "oscar", "prize"],
+    "director": ["directed", "directs", "direct"],
+    "award received": ["oscar", "prize"],
     "publication date": [
         "release",
         "date",
-        "released",
         "releases",
         "release date",
         "publication",
         "launch",
         "broadcast",
-        "launched",
         "come out",
     ],
-    "executive producer": ["showrunner", "executive producer"],
-    "screenwriter": ["screenwriter", "scriptwriter", "writer", "story"],
-    "film editor": ["editor", "film editor"],
-    "box office": ["box", "office", "funding", "box office"],
-    "cost": ["budget", "cost"],
+    "executive producer": [
+        "showrunner",
+    ],
+    "screenwriter": ["scriptwriter", "writer", "story"],
+    "box office": ["box", "office", "funding"],
     "nominated for": [
         "nomination",
-        "award",
         "finalist",
         "shortlist",
         "selection",
-        "nominated for",
     ],
     "production company": [
         "company",
-        "company of production",
+        "production",
         "produced",
-        "production company",
     ],
-    "country of origin": ["origin", "country", "country of origin"],
-    "cast member": ["actor", "actress", "cast", "cast member"],
-    "genre": ["type", "kind", "genre"],
-    "film": ["movie"],
+    "country of origin": ["origin"],
+    "cast member": ["cast", "played", "plays", "acts", "acted", "play", "act"],
+    "genre": ["type", "kind"],
 }
 
 
@@ -55,6 +52,24 @@ class Message:
         self.__relevant_instance_of_entities = Entity.instance_of_movies(
             self.__knowledge_graph
         )
+        self.__fuzzy_threshold = 85
+        self.__normalized_content = content
+
+    def __repr__(self):
+        content = json.dumps(
+            {
+                "content": self.content,
+                "entities": self.entities,
+                "properties": self.properties,
+                "relations": self.relations,
+            },
+            indent=2,
+            default=repr,
+        )
+        return f"Message({content})"
+
+    def __str__(self):
+        return self.content
 
     @property
     def content(self) -> str:
@@ -65,10 +80,14 @@ class Message:
         self.__content = value
 
     @property
+    def normalized_content(self) -> str:
+        return self.__normalized_content
+
+    @property
     def relations(self) -> list[Relation]:
-        if self.__relations_with_scores is None:
-            self.__relations_with_scores = self.__get_relations_with_scores()
-        return [relation for relation, _ in self.__relations_with_scores]
+        if self.relations_with_scores is not None:
+            return [relation for relation, _ in self.relations_with_scores]
+        return []
 
     @property
     def relations_with_scores(self) -> list[tuple[Relation, int]]:
@@ -83,22 +102,38 @@ class Message:
         matches = []
 
         for relation in knowledge_graph_relations:
-            if not relation.label:
-                continue
+            for label in [relation.label] + relation.alt_labels:
+                if not label:
+                    continue
 
-            rel_label_lower = relation.label.lower()
-            if rel_label_lower in query_lower:
-                score = 100 + len(rel_label_lower)
-                matches.append((relation, score, relation.label))
-            elif rel_label_lower in normalized_query:
-                score = 98 + len(rel_label_lower)
-                matches.append((relation, score, relation.label))
-            else:
-                fuzzy_score = fuzz.partial_ratio(rel_label_lower, query_lower)
+                rel_label_lower = label.lower()
+                if rel_label_lower in query_lower:
+                    score = 100 + len(rel_label_lower)
+                    matches.append((relation, score))
+                    self.__normalized_content = query_lower.replace(
+                        rel_label_lower, relation.label.lower()
+                    )
+                    break
+                elif rel_label_lower in normalized_query:
+                    score = 98 + len(rel_label_lower)
+                    matches.append((relation, score))
+                    self.__normalized_content = normalized_query
+                    break
+                else:
+                    fuzzy_score = fuzz.partial_ratio(rel_label_lower, query_lower)
 
-                if fuzzy_score > self.fuzzy_threshold:
-                    adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
-                    matches.append((relation, int(adjusted_score), relation.label))
+                    if fuzzy_score > self.__fuzzy_threshold:
+                        adjusted_score = fuzzy_score + (len(rel_label_lower) * 0.5)
+                        matches.append((relation, int(adjusted_score)))
+
+        return sorted(
+            matches,
+            key=lambda relation_score: (
+                relation_score[1],
+                len(relation_score[0].label),
+            ),
+            reverse=True,
+        )
 
     def __normalize_for_relations(self) -> str:
         normalized = self.content.lower()
@@ -108,28 +143,10 @@ class Message:
             for synonym in sorted(syn_list, key=len, reverse=True):
                 synonym_lower = synonym.lower()
 
-                if synonym_lower in normalized:
+                if synonym_lower in normalized and any(
+                    word in synonym_lower for word in words
+                ):
                     normalized = normalized.replace(synonym_lower, canonical.lower())
-                else:
-                    if " " in synonym_lower:
-                        if fuzz.partial_ratio(synonym_lower, normalized) > 85:
-                            best_match = process.extractOne(
-                                synonym_lower,
-                                [
-                                    normalized[i : i + len(synonym_lower) + 10]
-                                    for i in range(len(normalized))
-                                ],
-                                scorer=fuzz.partial_ratio,
-                            )
-                            if best_match and best_match[1] > 85:
-                                normalized = normalized.replace(
-                                    synonym_lower, canonical.lower()
-                                )
-                    else:
-                        for word in words:
-                            if fuzz.ratio(synonym_lower, word) > 85:
-                                normalized = normalized.replace(word, canonical.lower())
-                                break
 
         return normalized
 
@@ -145,7 +162,7 @@ class Message:
         ]
 
     @property
-    def properties(self) -> list[str]:
+    def properties(self) -> list[Entity]:
         return [
             entity
             for entity, _ in self.entities_with_scores
@@ -167,27 +184,25 @@ class Message:
         remaining_query = self.content.lower()
         matches = []
 
-        for entity in sorted(
-            knowledge_graph_entities,
-            key=lambda e: len(e.label) if e.label else 0,
-            reverse=True,
-        ):
-            if not entity.label:
-                continue
+        for entity in knowledge_graph_entities:
+            for label in [entity.label] + entity.alt_labels:
+                if not label:
+                    continue
 
-            pattern = r"\b" + re.escape(entity.label.lower()) + r"\b"
+                pattern = r"\b" + re.escape(label.lower()) + r"\b"
 
-            match = re.search(pattern, remaining_query)
+                match = re.search(pattern, remaining_query)
 
-            if match:
-                score = 100 + len(entity.label)
-                matches.append(
-                    (
-                        entity,
-                        score,
+                if match:
+                    score = 100 + len(label)
+                    matches.append(
+                        (
+                            entity,
+                            score,
+                        )
                     )
-                )
-                remaining_query = re.sub(pattern, " ", remaining_query, 1)
+                    remaining_query = re.sub(pattern, " ", remaining_query, 1)
+                    break
 
         return sorted(
             matches,

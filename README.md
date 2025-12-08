@@ -1,4 +1,4 @@
-# SPARQL Query Chatbot - 3nd Intermediate Evaluation
+# SPARQL Query Chatbot - Final Evaluation
 
 ## Overview
 
@@ -19,6 +19,7 @@ Demonstrate the chatbot can:
 ```
 .
 ├── .venv/                # Virtual environment
+├── datasets/             # Datasets used as knowledge base (if not provided)
 ├── services/             # services like sparql endpoint server
 ├── src/                  # source code for the agent
     ├── main.py           # entry point
@@ -59,9 +60,15 @@ pip install -r requirements.txt
 # Install external dependencies
 ./scripts/download_dependencies.sh
 
+# create graph data for multimedia queries
+python ./scripts/create_image_graph.py /space_mounts/atai-hs25/dataset/additional/images.json -o ./datasets/images.nt
+
+# create alt labels graph to enhance entity, relation and property extraction
+python ./scripts/create_alt_label_graph.py /space_mounts/atai-hs25/dataset/graph.nt ./datasets/alt_labels.nt
+
 # Create TDB2 database (only done once or when graph changes)
 export JENA_HOME="./services/apache-jena-5.6.0" # path to apache jena
-./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database /space_mounts/atai-hs25/dataset/graph.nt # local path to graph
+./services/apache-jena-5.6.0/bin/tdb2.tdbloader --loc ./services/Database /space_mounts/atai-hs25/dataset/graph.nt ./datasets/images.nt ./datasets/alt_labels.nt
 
 # start fuseki-server and llama-server
 ./scripts/start_services.sh
@@ -80,10 +87,22 @@ This will start a local sparql endpoint available at [http://localhost:3030/atai
 
 ## Recommendation Questions
 
-### 1. Factual Answers
-
 Questions answered directly from the knowledge graph using SPARQL queries.
 
 **Example:** "Given that I like The Lion King, Pocahontas, and The Beauty and the Beast, can you recommend some movies?"
 
 **Response:** "<Adequate recommendations will be (2-D) animated movies or real-life remakes of Disney movies.>"
+
+## Factual Questions
+
+Questions about factual information of movies
+
+**Example:** "Who is the composer of 'Enchanted April'?"
+**Response:** "Richard Rodney Bennett"
+
+# Multimedia Questions
+
+Questions about images of movie posters or people
+
+**Example:** "What does Emma Stone look like?"
+**Response:** "<image of emma stone>"

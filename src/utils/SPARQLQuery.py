@@ -33,7 +33,7 @@ class SPARQLQuery:
         self.graph.setQuery(self.query)
         response = SPARQLResponse(self.graph.query().convert())
         return {
-            var: [binding[var] for binding in response["results"]["bindings"]]
+            var: [binding.get(var) for binding in response["results"]["bindings"]]
             for var in response["head"]["vars"]
         }
 

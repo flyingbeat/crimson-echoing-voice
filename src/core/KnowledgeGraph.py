@@ -1,16 +1,12 @@
-from rdflib import RDFS, Namespace, URIRef
+from rdflib import RDFS, URIRef
 from SPARQLWrapper import JSON, SPARQLWrapper
 
 from utils import BindingDict, SPARQLQuery
 
 from .Entity import Entity
+from .Namespaces import SCHEMA, SKOS, WD, WDT
 from .Property import Property
 from .Relation import Relation
-
-WD = Namespace("http://www.wikidata.org/entity/")
-WDT = Namespace("http://www.wikidata.org/prop/direct/")
-DDIS = Namespace("http://ddis.ch/atai/")
-SCHEMA = Namespace("http://schema.org/")
 
 
 class KnowledgeGraph:
@@ -23,22 +19,8 @@ class KnowledgeGraph:
             self
         ) + Entity.instance_of_movie_properties(self)
 
-    def get_uri(self, label: str) -> URIRef:
-        triplet = self.get_triplets(None, Relation(RDFS.label, self), label)
-        if triplet:  # TODO what if more than one >>> and len(triplet) == 1:
-            return triplet[0][0].uri
-        return ""
-
     def get_label(self, uri: URIRef) -> str:
         triplet = self.get_triplets(Entity(uri, self), Relation(RDFS.label, self), None)
-        if triplet and isinstance(triplet[0][2], str):
-            return triplet[0][2]
-        return ""
-
-    def get_description(self, uri: URIRef) -> str:
-        triplet = self.get_triplets(
-            Entity(uri, self), Relation(SCHEMA.description, self), None
-        )
         if triplet and isinstance(triplet[0][2], str):
             return triplet[0][2]
         return ""
@@ -52,22 +34,40 @@ class KnowledgeGraph:
         return SPARQLQuery(self.__graph, query_string).query_and_convert()
 
     @property
-    def relations(self) -> list[URIRef]:
+    def relations(self) -> list[Relation]:
         if self.__relations is None:
             self.__relations = self.__get_relations()
         return self.__relations
 
-    def __get_relations(self) -> list[URIRef]:
+    def __get_relations(self) -> list[Relation]:
         query = f"""
-            SELECT ?uri WHERE {{
+            SELECT ?uri ?label ?alt_label WHERE {{
                 ?uri <{RDFS.label}> ?label .
+                OPTIONAL {{ ?uri <{SKOS.altLabel}> ?alt_label . }}
                 FILTER(STRSTARTS(STR(?uri), "{WDT}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
-        return [
-            Relation.from_binding(relation, self) for relation in query_result["uri"]
-        ]
+        relations = {}
+        for uri, label, alt_label in zip(
+            query_result["uri"], query_result["label"], query_result["alt_label"]
+        ):
+            relation_uri = uri["value"]
+            relation_label = label["value"]
+            relation_alt_label = alt_label["value"] if alt_label else None
+            if relation_uri not in relations:
+                relations[relation_uri] = Relation(
+                    URIRef(relation_uri),
+                    self,
+                    relation_label,
+                    [relation_alt_label] if relation_alt_label else [],
+                )
+            else:
+                if relation_alt_label:
+                    relations[relation_uri].alt_labels = relations[
+                        relation_uri
+                    ].alt_labels + [relation_alt_label]
+        return list(relations.values())
 
     @property
     def entities(self) -> list[Entity]:
@@ -76,35 +76,61 @@ class KnowledgeGraph:
         return self.__entities
 
     def __get_relevant_entities_with_labels(self) -> list[Entity]:
-        condition_triplets = [
-            (None, Relation.instance_of(self), e) for e in self.__relevant_instance_of
-        ]
-
+        P345 = Relation.imdb_id(self)
+        P31 = Relation.instance_of(self)
         query = f"""
-            SELECT ?uri ?label ?instance_of
+            SELECT ?uri ?label ?instance_of ?alt_label ?imdb_id
             WHERE {{
                 ?uri <{RDFS.label}> ?label .
-                ?uri <http://www.wikidata.org/prop/direct/P31> ?instance_of .
-                {{ {SPARQLQuery.union_clauses(condition_triplets, ["uri"])} }}
+                ?uri <{P31.uri}> ?instance_of .
+                OPTIONAL {{ ?uri <{SKOS.altLabel}> ?alt_label . }}
+                OPTIONAL {{ ?uri <{P345.uri}> ?imdb_id . }}
+                FILTER(?instance_of IN ({', '.join(f'<{e.uri}>' for e in self.__relevant_instance_of)})) . 
                 FILTER(STRSTARTS(STR(?uri), "{WD}"))
             }}
         """
         query_result = SPARQLQuery(self.__graph, query).query_and_convert()
-        return [
-            Entity(
-                URIRef(uri["value"]),
-                self,
-                label["value"],
-                (
-                    URIRef(instance_of["value"])
-                    if instance_of["type"] == "uri"
-                    else instance_of
-                ),
+        entities: dict[str, Entity] = {}
+        for uri, label, instance_of, alt_label, imdb_id in zip(
+            query_result["uri"],
+            query_result["label"],
+            query_result["instance_of"],
+            query_result["alt_label"],
+            query_result["imdb_id"],
+        ):
+            entity_uri = uri["value"]
+            entity_label = label["value"]
+            entity_instance_of = (
+                URIRef(instance_of["value"])
+                if instance_of["type"] == "uri"
+                else str(instance_of)
             )
-            for uri, label, instance_of in zip(
-                query_result["uri"], query_result["label"], query_result["instance_of"]
-            )
-        ]
+            entity_alt_labels = alt_label["value"] if alt_label else None
+            entity_imdb_id = imdb_id["value"] if imdb_id else None
+            if entity_uri not in entities:
+                entities[entity_uri] = Entity(
+                    URIRef(entity_uri),
+                    self,
+                    entity_label,
+                    [entity_instance_of],
+                    [entity_alt_labels] if entity_alt_labels else [],
+                    entity_imdb_id,
+                )
+            else:
+                if entity_instance_of not in entities[entity_uri].instance_of:
+                    entities[entity_uri].instance_of.append(entity_instance_of)
+
+                if (
+                    entity_alt_labels
+                    and entity_alt_labels not in entities[entity_uri].alt_labels
+                ):
+                    entities[entity_uri].alt_labels.append(entity_alt_labels)
+
+        return sorted(
+            list(entities.values()),
+            key=lambda e: len(e.label) if e.label else 0,
+            reverse=True,
+        )
 
     def get_triplets(
         self,
